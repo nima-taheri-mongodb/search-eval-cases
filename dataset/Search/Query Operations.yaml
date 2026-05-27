@@ -1,0 +1,50 @@
+dataset:
+  created: "2026-05-29T18:30:52.373Z"
+  created_at: null
+  description: null
+  id: 1c2e389c-89db-457f-ae0e-1e7d559e2e82
+  metadata: null
+  name: Search Query Operations
+  project_id: 025be6d9-cc52-4d9e-a413-d8a9a48a8f6b
+preview_length: -1
+row_limit: null
+rows:
+  - expected:
+      llm_judge: |
+        The $result should contain the same movies as this query yields:
+          aggregate([
+            {
+              $search: {
+                index: "default",
+                text: {
+                  query: "rich British person India",
+                  path: "plot"
+                }
+              }
+            },
+            {
+              $match: {
+                genres: "Romance"
+              }
+            }
+          ])
+        )
+    id: 86fcd90a-5992-4dfd-b1f7-48f0b84988b9
+    input:
+      db_seed:
+        - movies:
+            indexes:
+              - definition:
+                  mappings:
+                    dynamic: true
+                name: default
+                type: search
+      prompt: |
+        Find movies with 'Romance' in their genres and 'rich British person India' (use text search) in their plot.
+    tags:
+      - Search
+      - Query Operations
+      - Text Search
+    origin: null
+rows_previewed: false
+rows_truncated: false

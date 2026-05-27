@@ -1,0 +1,55 @@
+dataset:
+  created: "2026-05-29T17:27:06.920Z"
+  created_at: null
+  description: null
+  id: 1bdfcc30-0259-4ad7-b97f-c303640bd673
+  metadata: null
+  name: Search Index Management
+  project_id: 025be6d9-cc52-4d9e-a413-d8a9a48a8f6b
+preview_length: -1
+row_limit: null
+rows:
+  - expected:
+      example: |
+        createSearchIndexes({ type: "search", definition: { mappings: true } })
+      llm_judge: |
+        A search index on the collection should exist with its 'mapping' being dynamic.
+    id: ba050af8-c74e-4dd6-b1b9-c223716e5394
+    input:
+      db_seed:
+        - movies
+      prompt: |
+        Create a text search index on the collection for all its fields (future fields included)
+    metadata: null
+    origin: null
+    tags:
+      - Search
+      - Index Management
+      - Text Search
+      - Index Deletion
+  - expected:
+      example: |
+        dropSearchIndex("movies_fts_index")
+      llm_judge: No search index on the 'movies' collection should exist
+    id: e8912167-2b98-4e76-b670-2391be16f264
+    input:
+      db_seed:
+        - movies:
+            indexes:
+              - definition:
+                  mappings:
+                    dynamic: true
+                name: movies_fts_index
+                type: search
+      prompt: |
+        Remove 'movies_fts_index' search index
+    metadata: null
+    origin: null
+    tags:
+      - Search
+      - Index Management
+      - Text Search
+      - Index Creation
+      - Dynamic Mapping Mode
+rows_previewed: false
+rows_truncated: false

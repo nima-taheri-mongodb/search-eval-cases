@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mongodb-eval-cases/schemas/braintrust-dataset.schema.json",
+  "title": "MongoDB Evaluation Cases Braintrust Dataset",
+  "description": "A Braintrust dataset as written to dataset/<name>.yaml by `scripts/datasets.sh pull`. The envelope wraps dataset metadata and the evaluation cases (rows).",
+  "type": "object",
+  "required": ["dataset", "rows"],
+  "properties": {
+    "dataset": {
+      "type": "object",
+      "description": "Remote dataset metadata. Managed by Braintrust; do not hand-edit ids.",
+      "required": ["name"],
+      "properties": {
+        "id": {
+          "type": ["string", "null"],
+          "description": "Braintrust dataset id (UUID). Assigned by Braintrust."
+        },
+        "name": {
+          "type": "string",
+          "description": "Dataset name. Must match the file name (without .yaml)."
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Optional human-readable description."
+        },
+        "project_id": {
+          "type": ["string", "null"],
+          "description": "Braintrust project id (UUID) that owns this dataset."
+        },
+        "created": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Creation timestamp (ISO 8601)."
+        },
+        "created_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "metadata": {
+          "type": ["object", "null"],
+          "description": "Arbitrary key/value metadata attached to the dataset."
+        }
+      }
+    },
+    "preview_length": {
+      "type": ["integer", "null"],
+      "description": "Preview truncation length used by `bt datasets view`. -1 means full values."
+    },
+    "row_limit": {
+      "type": ["integer", "null"],
+      "description": "Row limit applied when the dataset was fetched (null = all rows)."
+    },
+    "rows": {
+      "type": "array",
+      "description": "The evaluation cases in this dataset.",
+      "items": { "$ref": "#/definitions/row" }
+    },
+    "rows_previewed": {
+      "type": "boolean",
+      "description": "True if row values were previewed/truncated rather than fully fetched."
+    },
+    "rows_truncated": {
+      "type": "boolean",
+      "description": "True if the number of returned rows was truncated."
+    }
+  },
+  "definitions": {
+    "row": {
+      "type": "object",
+      "description": "A single evaluation case.",
+      "required": ["input"],
+      "properties": {
+        "id": {
+          "type": ["string", "null"],
+          "description": "Stable record id (UUID). Used by `bt datasets update` to upsert by id. Omit to let Braintrust assign one."
+        },
+        "input": {
+          "type": "object",
+          "description": "The case input handed to the evaluation task.",
+          "required": ["prompt"],
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "The user prompt sent to the LLM."
+            },
+            "db_seed": {
+              "type": "array",
+              "description": "Collections (from dbseed/) used to hydrate the database before the case runs.",
+              "items": { "$ref": "#/definitions/dbSeedEntry" }
+            }
+          }
+        },
+        "expected": {
+          "type": ["object", "null"],
+          "description": "The expected result / grading criteria for this case.",
+          "properties": {
+            "judge": {
+              "type": "string",
+              "description": "Natural-language rubric describing what a correct response/DB state looks like."
+            },
+            "example": {
+              "type": "string",
+              "description": "An example command or answer that would satisfy the judge."
+            }
+          }
+        },
+        "metadata": {
+          "type": ["object", "null"],
+          "description": "Per-case metadata.",
+          "properties": {
+            "tags": {
+              "type": ["array", "null"],
+              "items": { "type": "string" },
+              "description": "Free-form tags categorizing the case."
+            },
+            "scores": {
+              "type": ["array", "null"],
+              "items": { "type": "string" },
+              "description": "Names of scorer functions (see scorer/) to apply to this case."
+            }
+          }
+        },
+        "tags": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "Top-level Braintrust row tags."
+        },
+        "origin": {
+          "type": ["object", "null"],
+          "description": "Braintrust provenance info linking back to a source object."
+        }
+      }
+    },
+    "dbSeedEntry": {
+      "description": "Either a bare collection name, or a single-key object mapping a collection name to its setup (e.g. indexes).",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Name of a collection to seed (documents loaded from dbseed/<name>.json)."
+        },
+        {
+          "type": "object",
+          "description": "Collection name -> setup. Exactly one key (the collection name).",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "additionalProperties": { "$ref": "#/definitions/dbSeedSetup" }
+        }
+      ]
+    },
+    "dbSeedSetup": {
+      "type": "object",
+      "description": "Setup applied to a seeded collection.",
+      "properties": {
+        "indexes": {
+          "type": "array",
+          "description": "Indexes to create on the collection before the case runs.",
+          "items": { "$ref": "#/definitions/index" }
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "description": "A MongoDB Atlas Search / Vector Search index definition.",
+      "required": ["type", "name", "definition"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["search", "vectorSearch"],
+          "description": "Index type."
+        },
+        "name": {
+          "type": "string",
+          "description": "Index name."
+        },
+        "definition": {
+          "type": "object",
+          "description": "Index definition (e.g. { mappings: { dynamic: true } })."
+        }
+      }
+    }
+  }
+}

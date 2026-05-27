@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["task/**/*.ts", "scripts/**/*.ts", "task/lib/vendor/mongodb-mcp-server/bundle.d.cts"],
+  "exclude": ["node_modules", "task/lib/vendor/mongodb-mcp-server.bundle.cjs"]
+}

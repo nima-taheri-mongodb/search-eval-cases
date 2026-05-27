@@ -1,0 +1,6 @@
+.bt
+.idea
+.cursor
+.DS_Store
+node_modules/
+task/lib/vendor/**/*.cjs
