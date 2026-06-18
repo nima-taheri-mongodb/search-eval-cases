@@ -2,5 +2,6 @@
 .idea
 .cursor
 .DS_Store
+output/
 node_modules/
 task/lib/vendor/**/*.cjs

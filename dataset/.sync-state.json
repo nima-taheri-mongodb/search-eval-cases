@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "project": "mongodb-mcp-server-evals",
+  "datasets": {
+    "Search": {
+      "dataset_id": "8fdcbaa2-4b3b-4583-94d6-486e93fd4514",
+      "rows": {
+        "3c264f64-dc66-410e-aa7b-4b0722189ff3": {
+          "xact_id": "1000197360707234941",
+          "content_hash": "a9db4426b76a9068"
+        },
+        "86fcd90a-5992-4dfd-b1f7-48f0b84988b9": {
+          "xact_id": "1000197360707234654",
+          "content_hash": "447e509404d07108"
+        },
+        "e8912167-2b98-4e76-b670-2391be16f264": {
+          "xact_id": "1000197360707168717",
+          "content_hash": "05240aa065f1efaa"
+        },
+        "ba050af8-c74e-4dd6-b1b9-c223716e5394": {
+          "xact_id": "1000197360707168355",
+          "content_hash": "3589219ada9553dd"
+        }
+      },
+      "synced_at": "2026-06-18T01:13:33.691Z"
+    }
+  }
+}

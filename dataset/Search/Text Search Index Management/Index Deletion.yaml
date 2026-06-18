@@ -1,0 +1,19 @@
+- id: e8912167-2b98-4e76-b670-2391be16f264
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: movies_fts_index
+              type: search
+    prompt: |
+      Remove 'movies_fts_index' search index
+  expected:
+    example: |
+      dropSearchIndex("movies_fts_index")
+    llm_judge: No search index on the 'movies' collection should exist
+  metadata:
+    summary: index deletion for search index
+  origin: null

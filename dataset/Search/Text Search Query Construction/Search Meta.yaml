@@ -1,0 +1,49 @@
+- id: 3c264f64-dc66-410e-aa7b-4b0722189ff3
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: false
+                  fields:
+                    plot:
+                      type: string
+                    release_year:
+                      type: number
+              name: default
+              type: search
+    prompt: |
+      Find movies with 'rich British person India' (use text search) in their plot and bucket them by decade of their 'release_year'.
+  expected:
+    llm_judge: |
+      The $response should not be empty and yield the same number of movies per decade as this query yields:
+        aggregate([
+          {
+            $searchMeta: {
+              facet: {
+                operator: {
+                  text: {
+                    query: "rich British person India",
+                    path: "plot"
+                  }
+                },
+                facets: {
+                  decade: {
+                    type: "number",
+                    path: "release_year",
+                    boundaries: [
+                      1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990,
+                      2000, 2010, 2020, 2030
+                    ],
+                    default: "other"
+                  }
+                }
+              },
+              index: "default"
+            }
+          }
+        ])
+  metadata:
+    summary: usage of facets of $searchMeta to bucket number fields
+  origin: null

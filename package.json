@@ -4,32 +4,28 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "bundle:mcp-server": "node scripts/mongodb-mcp-server/bundler.mjs",
-    "push:sandbox": "pnpm exec braintrust push --if-exists replace task/mongodb_agent.ts",    
-    "eval:local": "pnpm exec bt eval task/mongodb_agent.ts",
-    "pull:datasets": "bash scripts/datasets.sh pull",
-    "push:datasets": "bash scripts/datasets.sh push",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsx scripts/typecheck.ts",
+    "pull": "tsx scripts/datasets.ts pull",
+    "plan": "tsx scripts/datasets.ts plan",
+    "apply": "tsx scripts/datasets.ts apply",
+    "push": "tsx scripts/datasets.ts push",
+    "scaffold": "tsx scripts/datasets.ts scaffold",
+    "mcp-server:pull-data": "tsx scripts/mcp-server-pull-data.ts",
+    "eval:remote": "tsx scripts/run-remote-eval.ts",
+    "test": "tsx --test scripts/datasets-lib.test.ts scripts/taxonomy-lib.test.ts scripts/datasets-layout.test.ts scripts/run-remote-eval-lib.test.ts scripts/typecheck.test.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@ai-sdk/mcp": "^1.0.36",
-    "@ai-sdk/openai": "^2.0.1",
-    "@modelcontextprotocol/sdk": "^1.25.0",
-    "ai": "^6.0.0",
     "braintrust": "^3.11.0",
-    "mongodb": "^7.2.0",
-    "mongodb-connection-string-url": "^7.0.0",
-    "mongodb-mcp-server": "^1.11.0",
-    "uuid": "^11.1.0",
-    "zod": "^3.25.76"
+    "yaml": "^2.8.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
-    "esbuild": "^0.28.0",
+    "@types/node": "^22.15.30",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   }

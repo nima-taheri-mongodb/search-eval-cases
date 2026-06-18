@@ -1,0 +1,34 @@
+- id: 86fcd90a-5992-4dfd-b1f7-48f0b84988b9
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      Find movies with 'Romance' in their genres and 'rich British person India' (use text search) in their plot.
+  expected:
+    llm_judge: |
+      The $response should not be empty and match the same movies as this query yields:
+        aggregate([
+          {
+            $search: {
+              index: "default",
+              text: {
+                query: "rich British person India",
+                path: "plot"
+              }
+            }
+          },
+          {
+            $match: {
+              genres: "Romance"
+            }
+          }
+        ])
+  metadata:
+    summary: usage of $search for text search and another pipeline stage to filter by another field
+  origin: null

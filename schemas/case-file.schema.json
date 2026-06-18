@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mongodb-eval-cases/schemas/case-file.schema.json",
+  "title": "L3 case file",
+  "description": "YAML root sequence (JSON-compatible array) of row objects at dataset/{L1}/{L2}/{L3}.yaml. Row `input` / `expected` validate against `input.schema.json` and `expected.schema.json`.",
+  "oneOf": [
+    {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/row" }
+    },
+    {
+      "type": "object",
+      "required": ["rows"],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/row" }
+        }
+      },
+      "additionalProperties": false
+    },
+    { "$ref": "#/definitions/row" }
+  ],
+  "definitions": {
+    "row": {
+      "type": "object",
+      "description": "A single evaluation case.",
+      "required": ["input"],
+      "properties": {
+        "id": {
+          "type": ["string", "null"],
+          "description": "Stable record id (UUID). Used to upsert by id. Omit to let Braintrust assign one."
+        },
+        "label": {
+          "type": "string",
+          "description": "Taxonomy segment beyond L3 (L4); merged with path into row tags on sync."
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Taxonomy segments L4+ when more than one level beyond the L3 file key."
+        },
+        "input": {
+          "$ref": "https://mongodb-eval-cases/schemas/input.schema.json",
+          "description": "The case input handed to the evaluation task (generated from mongodb-mcp-server eval types)."
+        },
+        "expected": {
+          "description": "The expected result / grading criteria for this case.",
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "https://mongodb-eval-cases/schemas/expected.schema.json" }
+          ]
+        },
+        "metadata": {
+          "type": ["object", "null"],
+          "description": "Per-case metadata.",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "Short human-readable summary of the case."
+            },
+            "tags": {
+              "type": ["array", "null"],
+              "items": { "type": "string" },
+              "description": "Free-form tags categorizing the case (mirrors top-level tags when present)."
+            },
+            "scores": {
+              "type": ["array", "null"],
+              "items": { "type": "string" },
+              "description": "Names of scorer functions to apply to this case."
+            }
+          }
+        },
+        "tags": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "Top-level Braintrust row tags."
+        },
+        "origin": {
+          "type": ["object", "null"],
+          "description": "Braintrust provenance info linking back to a source object."
+        }
+      }
+    }
+  }
+}

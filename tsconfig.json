@@ -9,7 +9,8 @@
     "noEmit": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "types": ["node"]
   },
   "include": ["task/**/*.ts", "scripts/**/*.ts", "task/lib/vendor/mongodb-mcp-server/bundle.d.cts"],
   "exclude": ["node_modules", "task/lib/vendor/mongodb-mcp-server.bundle.cjs"]

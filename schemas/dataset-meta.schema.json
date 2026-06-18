@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mongodb-eval-cases/schemas/dataset-meta.schema.json",
+  "title": "Braintrust dataset metadata slice",
+  "description": "Optional `dataset/Search/_meta.yaml` — only remote dataset envelope, no rows.",
+  "type": "object",
+  "required": ["dataset"],
+  "properties": {
+    "dataset": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "id": { "type": ["string", "null"] },
+        "name": { "type": "string" },
+        "description": { "type": ["string", "null"] },
+        "project_id": { "type": ["string", "null"] },
+        "created": { "type": ["string", "null"], "format": "date-time" },
+        "created_at": { "type": ["string", "null"], "format": "date-time" },
+        "metadata": { "type": ["object", "null"] }
+      }
+    }
+  },
+  "additionalProperties": false
+}

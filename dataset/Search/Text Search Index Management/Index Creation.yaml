@@ -1,0 +1,15 @@
+- id: ba050af8-c74e-4dd6-b1b9-c223716e5394
+  label: Dynamic Mapping
+  input:
+    db_seed:
+      - movies
+    prompt: |
+      Create a text search index on the collection for all its fields (future fields included)
+  expected:
+    example: |
+      createSearchIndexes({ type: "search", definition: { mappings: true } })
+    llm_judge: |
+      A search index on the collection should exist with its 'mapping' being dynamic.
+  metadata:
+    summary: index creation for search index with dynamic mapping
+  origin: null

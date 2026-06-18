@@ -1,5 +1,6 @@
 {
   "yaml.schemas": {
-    "./schemas/braintrust-dataset.schema.json": "dataset/**/*.yaml"
+    "./schemas/case-file.schema.json": "dataset/*/*/*.yaml",
+    "./schemas/dataset-meta.schema.json": "dataset/*/_meta.yaml"
   }
 }

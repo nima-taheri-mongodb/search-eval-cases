@@ -1,0 +1,9 @@
+taxonomy:
+  - Search:
+      - Text Search Index Management:
+          - Index Deletion: index deletion for search index
+          - Index Creation:
+              - Dynamic Mapping: index creation for search index with dynamic mapping
+      - Text Search Query Construction:
+          - Search Meta: usage of facets of $searchMeta to bucket number fields
+          - Post-Search Pipeline Stage: usage of $search for text search and another pipeline stage to filter by another field

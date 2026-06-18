@@ -1,50 +1,165 @@
 # Developer Guide
 
-## 📁 Project Structure
+## 📁 Project structure
 
 ```
 .
-├── task/        # 🤖 Evaluation task logic (registered as Braintrust remote evaluation functions)
-├── dataset/     # 📚 Evaluation suites — sets of cases to run using an evaluation task
-├── dbseed/      # 🌱 Seed collections used to initialize the database before each evaluation case
-└── scripts/     # 🛠️ Build and utility scripts (e.g., bundling the mdb-mcp-server, smoke tests)
+├── dataset/     # 📚 Local eval cases + taxonomy (synced with Braintrust)
+├── dbseed/      # 🌱 MongoDB seed collections for case `input.db_seed`
+├── schemas/     # 📐 JSON Schema for case YAML + row `input` / `expected`
+├── scripts/     # 🛠️ Sync, validation, remote eval, MCP vendoring
+└── output/      # 📤 Per-run trace dumps from `eval:remote` (gitignored)
 ```
 
-### 🤖 `task/`
-
-Contains the evaluation **tasks** that are registered as remote evaluation functions in Braintrust.  
-Each task encapsulates the logic to set up the database prior to LLM interactions (e.g., integrating the MongoDB MCP tools), manages any required cleanup afterward, and handles data plumbing and setup. This enables evaluation of data entries defined in the dataset.
+The **eval task** itself lives in **mongodb-mcp-server** (`tests/eval/mongodb.eval.ts`), not in this repo. This repo owns the case dataset, schemas, db seeds, and tooling to sync/run them.
 
 ### 📚 `dataset/`
 
-Contains the **evaluation suites**: collections of evaluation cases that are executed sequentially by the task logic.  
-Each entry specifies a **user prompt** for the LLM, the associated database seed required for execution, and the **criteria** to score the LLM's response or the resulting state of the database upon completion.
+Taxonomy-guided tree of evaluation cases:
 
-Suites may be organized into subdirectories (e.g. `dataset/Search/Index Management.yaml`); the sync scripts search `dataset/` **recursively**. A file's Braintrust dataset name is its path under `dataset/` (minus `.yaml`) with path separators turned into spaces — so `dataset/Search/Index Management.yaml` ↔ dataset `Search Index Management`.
+```
+dataset/
+  taxonomy.yaml                          # folder scaffold + leaf summaries
+  Search/_meta.yaml                      # Braintrust dataset envelope (id, project_id, …)
+  Search/Text Search Index Management/
+    Index Creation.yaml                  # one or more rows (YAML array)
+    Index Deletion.yaml
+```
 
-Criteria can reference two placeholders, which the LLM judge resolves on demand via tools: `$conversation` (the assistant's full transcript) and `$result` (the assistant's final response).
+- **L1** (`Search/`) → one Braintrust dataset named `Search`
+- **L2** → category folder
+- **L3** → case file (`.yaml` root is a row array, or legacy `{ rows: [...] }`)
+- **L4+** → `label` / `labels` on a row → extra tag segments
+
+Row **tags** = `[L1, L2, L3, L4, …]` from path + label. Tags drive file placement on pull and Braintrust grouping on push.
+
+Each row has:
+
+- `input` — prompt + `db_seed` (see `schemas/input.schema.json`)
+- `expected` — `llm_judge` / optional `example` (see `schemas/expected.schema.json`)
+- optional `id`, `metadata`, `origin`
+
+Judge criteria may reference `$conversation` and `$result` (resolved by the eval task).
+
+**Baseline:** `dataset/.sync-state.json` — last-synced row hashes for `plan` / `apply`.
 
 ### 🌱 `dbseed/`
 
-Houses the collections referenced by evaluation cases in the dataset.  
-We **initialize the database with these collections** prior to running each set of evaluation cases to ensure consistency and repeatability.
+JSON seed files referenced by `input.db_seed`. Refresh from mongodb-mcp-server via `pnpm mcp-server:pull-data`.
 
-### 🛠️ `scripts/`
+### 📐 `schemas/`
 
-Contains build and utility scripts, such as those used for bundling `mongodb-mcp-server` for the Braintrust Lambda sandbox.
+| File | Validates |
+|------|-----------|
+| `case-file.schema.json` | `dataset/{L1}/{L2}/{L3}.yaml` |
+| `dataset-meta.schema.json` | `dataset/{L1}/_meta.yaml` |
+| `input.schema.json` | row `input` (generated from MCP server types) |
+| `expected.schema.json` | row `expected` (generated from MCP server types) |
 
-## 📜 NPM Scripts
+Run `pnpm typecheck` to validate all mapped YAML under `dataset/`.
 
-Run scripts with `pnpm <script>`.
+---
 
+## 📜 NPM scripts
 
-| Script              | Command                                                                               | Description                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bundle:mcp-server` | `node scripts/mongodb-mcp-server/bundler.mjs`                                         | 📦 Pre-bundles `mongodb-mcp-server` (stubbing native dependencies) as `task/lib/vendor/mongodb-mcp-server/bundle.cjs` so that Braintrust can package it in a single Lambda artifact. Some library dependencies require native modules or dynamic imports, making it incompatible with the default Braintrust bundler; we manually include and stub unused dependencies to avoid compatibility issues. |
-| `push:sandbox`      | `pnpm exec braintrust push --if-exists replace task/mongodb_agent.ts`                 | 🚀 Pushes the evaluation task to Braintrust, replacing the existing function if present. The entrypoint validates `BRAINTRUST_API_KEY` and `OPENAI_BASE_URL` at import, so both must be set even just to push.                                                                                                                                                                                       |
-| `eval:local`        | `pnpm exec bt eval task/mongodb_agent.ts`                                             | 🧪 Runs the evaluation task locally for development and testing. Needs `BRAINTRUST_API_KEY` and `OPENAI_BASE_URL`, plus run parameters (e.g. `connectionString`, `model`) supplied via `BT_EVAL_PARAMS_JSON`.                                                                                                                                                                                          |
-| `pull:datasets`     | `bash scripts/datasets.sh pull`                                                       | ⬇️ Pulls every dataset from the Braintrust project into `dataset/`, searched **recursively**: each dataset is written back to its existing nested file if one matches (e.g. `dataset/Search/Index Management.yaml`), otherwise to a flat `dataset/<name>.yaml`.                                                                                                                                          |
-| `push:datasets`     | `bash scripts/datasets.sh push`                                                       | ⬆️ **Full mirror** of local YAML (discovered **recursively** under `dataset/`) to Braintrust so remote matches local exactly: creates missing datasets, **replaces** each row in place (`_is_merge:false`), **soft-deletes** remote rows absent locally (`_object_delete:true`), and deletes remote datasets with no local file. A file's dataset name is its path under `dataset/` (minus `.yaml`) with `/`→space. History-safe (append-only; nothing is hard-deleted or recreated). Uses the Braintrust insert API, so it needs `BRAINTRUST_API_KEY`. Flags: `--merge` (legacy upsert, no key, never deletes), `--dry-run` (preview the API payload). |
-| `typecheck`         | `tsc --noEmit`                                                                        | ✅ Performs a comprehensive type check of the project without generating any output files.                                                                                                                                                                                                                                                                                                             |
+Run with `pnpm <script>`. Most Braintrust commands need `BRAINTRUST_API_KEY`.
 
+| Script | Command | What it does |
+|--------|---------|--------------|
+| **`scaffold`** | `tsx scripts/datasets.ts scaffold` | 🏗️ Build `dataset/{L1}/{L2}/` folders + empty row stubs from `taxonomy.yaml` |
+| **`plan`** | `tsx scripts/datasets.ts plan` | 🔍 Diff local YAML vs Braintrust using `.sync-state.json`. Exit **1** if changes pending, **2** if blocked (conflicts) |
+| **`apply`** | `tsx scripts/datasets.ts apply` | ⬆️ Push local changes to Braintrust (creates/updates rows; skips drift, conflicts, remote-only unless `--prune`) |
+| **`pull`** | `tsx scripts/datasets.ts pull` | ⬇️ Overwrite local case files from remote + refresh `_meta.yaml`, `.sync-state.json`, and `taxonomy.yaml` |
+| **`push`** | `tsx scripts/datasets.ts push` | ⚠️ Deprecated alias for `apply --prune` (allows deleting remote rows/datasets missing locally) |
+| **`eval:remote`** | `tsx scripts/run-remote-eval.ts` | 🧪 Run selected L3 YAML rows against the MCP server’s Braintrust dev eval server (inline data, no dataset sync). See [Remote eval](#-remote-eval) |
+| **`typecheck`** | `tsx scripts/typecheck.ts` | ✅ Validate `dataset/**/*.yaml` against JSON Schema |
+| **`mcp-server:pull-data`** | `tsx scripts/mcp-server-pull-data.ts` | 🔄 Copy `dbseed/` + regenerate `schemas/input.schema.json` & `expected.schema.json` from **mongodb-mcp-server** |
+| **`test`** | `tsx --test scripts/*.test.ts` | 🧪 Unit tests for sync, taxonomy, remote eval, typecheck |
 
+### Dataset sync flags
+
+Shared by `plan`, `apply`, `pull`, `push`, `scaffold`:
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `-p` / `--project` | `mongodb-mcp-server-evals` | Braintrust project name |
+| `-d` / `--dir` | `dataset` | Local dataset root |
+| `--prune` | off (`push` enables it) | Allow deleting remote rows/datasets absent locally |
+| `-out FILE` | — | (`plan`) Write plan JSON |
+| `-f` / `--plan FILE` | — | (`apply`) Apply a saved plan instead of re-planning |
+
+**Typical flows**
+
+```bash
+# Start from taxonomy
+pnpm scaffold
+
+# Edit local YAML, preview remote diff
+pnpm plan
+
+# Push local → Braintrust (safe: no deletes)
+pnpm apply
+
+# Push with deletions
+pnpm apply --prune
+
+# Remote → local (clobber local case files)
+pnpm pull
+```
+
+---
+
+## 🧪 Remote eval
+
+The eval task runs in **mongodb-mcp-server**. This repo submits case rows to its dev server.
+
+1. **mongodb-mcp-server:** `pnpm eval:serve` → `http://localhost:8300`
+2. **This repo:** dry-run (no API calls):
+
+   ```bash
+   pnpm eval:remote --dry-run -- "dataset/Search/**/*.yaml"
+   ```
+
+3. **Run for real** (needs `BRAINTRUST_API_KEY`):
+
+   ```bash
+   pnpm eval:remote "dataset/Search/**/Index*.yaml"
+   ```
+
+Resolves globs → L3 case files → merges rows → `GET /list` + streaming `POST /eval` with **inline** row data. Prints the experiment URL early; fetches full traces afterward into `output/<experiment-name>/` (one JSON per row + `_manifest.json`).
+
+| Flag / env | Default | Meaning |
+|------------|---------|---------|
+| `--remote` / `EVAL_REMOTE_URL` | `http://localhost:8300` | Dev server URL |
+| `--eval` | `mongodb-mcp-server-evals` | Evaluator name (`GET /list`) |
+| `--dataset-dir` | `dataset` | Case YAML root |
+| `--experiment` | timestamped `remote-eval_…` | Experiment name |
+| `--project-id` | from `dataset/*/\_meta.yaml` if unambiguous | Braintrust project id for the run |
+| `--params` / `BT_EVAL_PARAMS_JSON` | — | Task params (`connectionString`, `model`, …) |
+| `--output-dir` | `output` | Trace dump directory |
+| `--skip-traces` | off | Skip post-run trace fetch |
+| `--dry-run` | off | List matched files/rows only |
+| `BRAINTRUST_APP_URL` | — | Optional custom Braintrust app URL |
+
+---
+
+## 🔄 `mcp-server:pull-data`
+
+Vendors upstream eval assets from **mongodb-mcp-server**:
+
+1. `tests/eval/dbSeed/` → `dbseed/`
+2. Runs `pnpm eval:generate-schemas` there
+3. Copies `input.schema.json` + `expected.schema.json` into `schemas/` (with eval-cases `$id` patches)
+
+Set `MONGODB_MCP_SERVER_ROOT` if the repo is not at `~/mongodb-mcp-server`.
+
+---
+
+## ✅ `typecheck`
+
+Validates YAML under `dataset/` (same mapping as `.vscode/settings.json`):
+
+- `dataset/*/*/*.yaml` → `case-file.schema.json` (includes nested `input` / `expected` refs)
+- `dataset/*/_meta.yaml` → `dataset-meta.schema.json`
+
+`dataset/taxonomy.yaml` has no schema yet (reported as skipped). Exits **1** on validation errors.

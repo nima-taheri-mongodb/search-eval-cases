@@ -1,0 +1,27 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "llm_judge": {
+            "description": "Grading criteria (one string or several) the LLM judge checks the output against.",
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            ]
+        },
+        "example": {
+            "type": "string",
+            "description": "Optional illustrative command or answer that would satisfy the judge."
+        }
+    },
+    "additionalProperties": false,
+    "description": "Expected outcome for a case, expressed as LLM-judge criteria.",
+    "$id": "https://mongodb-eval-cases/schemas/expected.schema.json"
+}
