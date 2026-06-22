@@ -92,7 +92,7 @@ describe("loadRowsFromCaseFiles", () => {
         ds,
         "Search",
         "Text Search Index Management",
-        "Index Deletion.yaml",
+        "Index Lifecycle.yaml",
       ),
     ];
     const rows = await loadRowsFromCaseFiles(files, ds);

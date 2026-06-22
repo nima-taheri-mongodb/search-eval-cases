@@ -45,20 +45,6 @@ type RawTaxonomyYaml = {
 type RawTaxonomyEntry = Record<string, RawTaxonomyValue>;
 type RawTaxonomyValue = string | RawTaxonomyEntry[] | Record<string, string | RawTaxonomyEntry[]>;
 
-export function normalizeTag(tag: string): string {
-  return tag
-    .replace(/^Team - /, "")
-    .replace(/^Category - /, "")
-    .trim();
-}
-
-export function normalizeTags(tags: string[] | undefined | null): string[] {
-  if (!tags) {
-    return [];
-  }
-  return tags.map(normalizeTag);
-}
-
 export function suffixFromRow(row: CaseRow): string[] {
   if (row.labels?.length) {
     return [...row.labels];
@@ -91,7 +77,7 @@ export function rowTags(
 }
 
 export function tagsToLocation(tags: string[], datasetDir: string): TagLocation {
-  const normalized = normalizeTags(tags);
+  const normalized = tags;
   if (normalized.length < 3) {
     throw new Error(
       `Row tags need at least 3 levels (L1/L2/L3), got: ${normalized.join(" > ")}`,
@@ -220,7 +206,7 @@ function namedToRaw(nodes: TaxonomyNamedNode[]): TaxonomyNode[] {
 }
 
 export function taxonomyPathKey(tags: string[]): string {
-  return normalizeTags(tags).join("\0");
+  return tags.join("\0");
 }
 
 function setLeafSummary(
@@ -316,7 +302,7 @@ export function taxonomyFromTagPaths(
   const roots = new Map<string, TaxonomyNamedNode>();
 
   for (const { tags, summary } of paths) {
-    const normalized = normalizeTags(tags);
+    const normalized = tags;
     if (normalized.length < 3) {
       continue;
     }

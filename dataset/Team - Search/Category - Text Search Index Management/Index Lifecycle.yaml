@@ -1,4 +1,5 @@
 - id: e8912167-2b98-4e76-b670-2391be16f264
+  label: Index Deletion
   input:
     db_seed:
       - movies:
@@ -15,5 +16,5 @@
       dropSearchIndex("movies_fts_index")
     llm_judge: No search index on the 'movies' collection should exist
   metadata:
-    summary: index deletion for search index
+    summary: index deletion for text search index creation
   origin: null

@@ -1,4 +1,5 @@
 - id: 3c264f64-dc66-410e-aa7b-4b0722189ff3
+  label: Number Facets
   input:
     db_seed:
       - movies:
@@ -45,5 +46,5 @@
           }
         ])
   metadata:
-    summary: usage of facets of $searchMeta to bucket number fields
+    summary: number facets for text search query
   origin: null

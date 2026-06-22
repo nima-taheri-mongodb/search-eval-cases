@@ -9,7 +9,6 @@ import {
 } from "./datasets-lib.js";
 import {
   applyLabelSuffix,
-  normalizeTags,
   pathToTagsPrefix,
   rowForBraintrust,
   rowTags,
@@ -249,7 +248,7 @@ export async function writeDatasetMeta(
 function rowMatchKey(row: CaseRow): string {
   const tags = row.tags ?? [];
   if (tags.length >= 3) {
-    return normalizeTags(tags).join("\0");
+    return tags.join("\0");
   }
   return "";
 }
@@ -262,7 +261,7 @@ export async function writeGroupedRows(
   const written: string[] = [];
 
   for (const row of rows) {
-    const tags = normalizeTags(row.tags);
+    const tags = row.tags ?? [];
     if (tags.length < 3) {
       continue;
     }
@@ -325,7 +324,7 @@ export function collectTagPathsFromAggregated(
   const paths: { tags: string[]; summary?: string }[] = [];
   for (const dataset of datasets) {
     for (const row of dataset.rows) {
-      const tags = normalizeTags(row.tags);
+      const tags = row.tags ?? [];
       if (tags.length < 3) {
         continue;
       }

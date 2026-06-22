@@ -12,7 +12,7 @@
     "scaffold": "tsx scripts/datasets.ts scaffold",
     "mcp-server:pull-data": "tsx scripts/mcp-server-pull-data.ts",
     "eval:remote": "tsx scripts/run-remote-eval.ts",
-    "test": "tsx --test scripts/datasets-lib.test.ts scripts/taxonomy-lib.test.ts scripts/datasets-layout.test.ts scripts/run-remote-eval-lib.test.ts scripts/typecheck.test.ts"
+    "test": "tsx --test scripts/*.test.ts"
   },
   "keywords": [],
   "author": "",

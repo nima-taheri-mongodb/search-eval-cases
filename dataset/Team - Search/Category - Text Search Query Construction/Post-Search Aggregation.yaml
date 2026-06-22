@@ -1,4 +1,5 @@
 - id: 86fcd90a-5992-4dfd-b1f7-48f0b84988b9
+  label: Aggregate Search Results
   input:
     db_seed:
       - movies:
@@ -30,5 +31,5 @@
           }
         ])
   metadata:
-    summary: usage of $search for text search and another pipeline stage to filter by another field
+    summary: aggregate search results for text search query
   origin: null

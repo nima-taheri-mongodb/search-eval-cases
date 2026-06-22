@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   mergeTaxonomy,
-  normalizeTags,
   parseTaxonomyYaml,
   pathToTagsPrefix,
   rowForBraintrust,
@@ -23,15 +22,6 @@ const DATASET_DIR = path.join(
   "..",
   "dataset",
 );
-
-describe("normalizeTags", () => {
-  it("strips legacy Team/Category prefixes", () => {
-    assert.deepEqual(
-      normalizeTags(["Team - Search", "Category - Text Search Index Management"]),
-      ["Search", "Text Search Index Management"],
-    );
-  });
-});
 
 describe("pathToTagsPrefix", () => {
   it("extracts L1/L2/L3 from case file path", () => {
@@ -173,7 +163,7 @@ describe("loadAggregatedDataset", () => {
         DATASET_DIR,
         "Search",
         "Text Search Index Management",
-        "Index Deletion.yaml",
+        "Index Lifecycle.yaml",
       ),
       path.join(
         DATASET_DIR,
@@ -186,14 +176,14 @@ describe("loadAggregatedDataset", () => {
     assert.equal(agg.name, "Search");
     assert.equal(agg.rows.length, 2);
     const creation = agg.rows.find((r) =>
-      r.tags?.includes("Dynamic Mapping"),
+      r.tags?.includes("Dynamic Mapping Mode"),
     );
     assert.ok(creation);
     assert.deepEqual(creation?.tags, [
       "Search",
       "Text Search Index Management",
       "Index Creation",
-      "Dynamic Mapping",
+      "Dynamic Mapping Mode",
     ]);
   });
 });
