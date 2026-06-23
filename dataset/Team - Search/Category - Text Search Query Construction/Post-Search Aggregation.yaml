@@ -13,7 +13,7 @@
       Find movies with 'Romance' in their genres and 'rich British person India' (use text search) in their plot.
   expected:
     llm_judge: |
-      The $response should not be empty and match the same movies as this query yields:
+      The $response match the same movies as this query yields:
         aggregate([
           {
             $search: {
@@ -30,6 +30,8 @@
             }
           }
         ])
+      * reduce the score to 0 if $response is empty.
+      * multiply the score by 0.2x if no search index was used in $conversation to fetch the results.
   metadata:
     summary: aggregate search results for text search query
   origin: null

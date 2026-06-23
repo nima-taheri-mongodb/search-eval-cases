@@ -4,12 +4,12 @@
     db_seed:
       - movies
     prompt: |
-      Create a text search index on the collection for all its fields (future fields included)
+      Create a text search index on the collection with its field mapping being dynamic.
   expected:
     example: |
-      createSearchIndexes({ type: "search", definition: { mappings: true } })
+      createSearchIndexes({ type: "search", definition: { mappings: { dynamic: true } } })
     llm_judge: |
-      A search index on the collection should exist with its 'mapping' being dynamic.
+      A search index on the collection should exist with its 'mappings' being dynamic.
   metadata:
     summary: dynamic mapping mode for text search index creation
   origin: null
