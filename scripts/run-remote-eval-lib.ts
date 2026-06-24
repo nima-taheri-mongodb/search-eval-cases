@@ -14,7 +14,9 @@ import {
 import {
   pathToTagsPrefix,
   rowForBraintrust,
+  suffixFromRow,
   TAXONOMY_FILENAME,
+  type CaseRow,
 } from "./taxonomy-lib.js";
 
 /** Same rules as `findCaseFiles` in datasets-layout: L1/L2/L3.yaml under dataset root. */
@@ -74,11 +76,41 @@ export async function resolveCaseFilesFromGlobs(
   return out;
 }
 
+export interface LoadedCaseRows {
+  rows: DatasetRow[];
+  sources: CaseFileLoadSource[];
+}
+
+export interface LoadRowsOptions {
+  /** When set, only rows whose `label` / `labels` match this regex are included. */
+  labelRegex?: RegExp;
+}
+
+/** Case label string used for `--label-regex` filtering (joins `labels` with ` > `). */
+export function rowLabelText(row: CaseRow): string {
+  const suffix = suffixFromRow(row);
+  return suffix.join(" > ");
+}
+
+export function rowMatchesLabelRegex(row: CaseRow, labelRegex: RegExp): boolean {
+  return labelRegex.test(rowLabelText(row));
+}
+
+export function compileLabelRegex(pattern: string): RegExp {
+  try {
+    return new RegExp(pattern);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`Invalid label regex /${pattern}/: ${msg}`);
+  }
+}
+
 export async function loadRowsFromCaseFiles(
   files: string[],
   datasetDir: string,
+  options?: LoadRowsOptions,
 ): Promise<DatasetRow[]> {
-  const loaded = await loadRowsFromCaseFilesDetailed(files, datasetDir);
+  const loaded = await loadRowsFromCaseFilesDetailed(files, datasetDir, options);
   return loaded.rows;
 }
 
@@ -89,16 +121,13 @@ export interface CaseFileLoadSource {
   tagsPreview: string[];
 }
 
-export interface LoadedCaseRows {
-  rows: DatasetRow[];
-  sources: CaseFileLoadSource[];
-}
-
 export async function loadRowsFromCaseFilesDetailed(
   files: string[],
   datasetDir: string,
+  options?: LoadRowsOptions,
 ): Promise<LoadedCaseRows> {
   const absDatasetDir = path.resolve(datasetDir);
+  const labelRegex = options?.labelRegex;
   const rows: DatasetRow[] = [];
   const sources: CaseFileLoadSource[] = [];
   for (const file of files) {
@@ -106,9 +135,14 @@ export async function loadRowsFromCaseFilesDetailed(
     const fileRows = await readCaseRowsFile(file);
     const rowIds: string[] = [];
     const tagsPreview: string[] = [];
+    let rowCount = 0;
     for (const row of fileRows) {
+      if (labelRegex && !rowMatchesLabelRegex(row, labelRegex)) {
+        continue;
+      }
       const btRow = rowForBraintrust(prefix, row);
       rows.push(btRow);
+      rowCount += 1;
       if (btRow.id) {
         rowIds.push(btRow.id);
       }
@@ -116,12 +150,14 @@ export async function loadRowsFromCaseFilesDetailed(
         tagsPreview.push(btRow.tags.join(" > "));
       }
     }
-    sources.push({
-      file,
-      rowCount: fileRows.length,
-      rowIds,
-      tagsPreview,
-    });
+    if (rowCount > 0) {
+      sources.push({
+        file,
+        rowCount,
+        rowIds,
+        tagsPreview,
+      });
+    }
   }
   return { rows, sources };
 }

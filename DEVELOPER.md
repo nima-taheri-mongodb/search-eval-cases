@@ -136,6 +136,7 @@ Resolves globs → L3 case files → merges rows → `GET /list` + streaming `PO
 | `--experiment` | timestamped `remote-eval_…` | Experiment name |
 | `--project-id` | from `dataset/*/\_meta.yaml` if unambiguous | Braintrust project id for the run |
 | `--params` / `BT_EVAL_PARAMS_JSON` | — | Task params (`connectionString`, `model`, …) |
+| `--label-regex` / `LABEL_REGEX` | — | Only run rows whose `label` / `labels` match this regex |
 | `--output-dir` | `output` | Trace dump directory |
 | `--skip-traces` | off | Skip post-run trace fetch |
 | `--dry-run` | off | List matched files/rows only |

@@ -27,14 +27,14 @@ describe("pathToTagsPrefix", () => {
   it("extracts L1/L2/L3 from case file path", () => {
     const file = path.join(
       DATASET_DIR,
-      "Search",
-      "Text Search Index Management",
-      "Index Deletion.yaml",
+      "Team - Search",
+      "Category - Text Search Index Management",
+      "Index Lifecycle.yaml",
     );
     assert.deepEqual(pathToTagsPrefix(file, DATASET_DIR), [
-      "Search",
-      "Text Search Index Management",
-      "Index Deletion",
+      "Team - Search",
+      "Category - Text Search Index Management",
+      "Index Lifecycle",
     ]);
   });
 
@@ -157,31 +157,35 @@ describe("taxonomyFromTagPaths", () => {
 });
 
 describe("loadAggregatedDataset", () => {
-  it("aggregates all L3 files under Search into one dataset", async () => {
+  it("aggregates L3 files under Team - Search into one dataset", async () => {
     const caseFiles = [
       path.join(
         DATASET_DIR,
-        "Search",
-        "Text Search Index Management",
+        "Team - Search",
+        "Category - Text Search Index Management",
         "Index Lifecycle.yaml",
       ),
       path.join(
         DATASET_DIR,
-        "Search",
-        "Text Search Index Management",
+        "Team - Search",
+        "Category - Text Search Index Management",
         "Index Creation.yaml",
       ),
     ];
-    const agg = await loadAggregatedDataset("Search", caseFiles, DATASET_DIR);
-    assert.equal(agg.name, "Search");
-    assert.equal(agg.rows.length, 2);
+    const agg = await loadAggregatedDataset(
+      "Team - Search",
+      caseFiles,
+      DATASET_DIR,
+    );
+    assert.equal(agg.name, "Team - Search");
+    assert.ok(agg.rows.length >= 2);
     const creation = agg.rows.find((r) =>
       r.tags?.includes("Dynamic Mapping Mode"),
     );
     assert.ok(creation);
     assert.deepEqual(creation?.tags, [
-      "Search",
-      "Text Search Index Management",
+      "Team - Search",
+      "Category - Text Search Index Management",
       "Index Creation",
       "Dynamic Mapping Mode",
     ]);

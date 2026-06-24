@@ -1,6 +1,38 @@
 {
+  // apply JSON schemas to dataset files
+  // https://github.com/remcohaszing/vscode-schemastore
   "yaml.schemas": {
     "./schemas/case-file.schema.json": "dataset/*/*/*.yaml",
     "./schemas/dataset-meta.schema.json": "dataset/*/_meta.yaml"
-  }
+  },
+  // highlight prompt and llm_judge in dataset files (block | scalars and inline single-line values)
+  // vscode-highlight decorates capturing groups only; use no groups so the full match is highlighted
+  // https://github.com/fabiospampinato/vscode-highlight
+  "highlight.regexes": {
+    "(?:^|\\n)[ \\t]+prompt:(?:\\s*\\|[-+]?\\s*\\n(?:(?:[ \\t]{6,}.*)?\\n)*|\\s+(?!\\|)[^\\n]+)": {
+      "regexFlags": "g",
+      "filterFileRegex": ".*\\.(yaml|yml)",
+      "decorations": [
+        {
+          "color": "rgb(203, 244, 55)",
+          "before": {
+            // "contentText": "💬 "
+          }
+        }
+      ]
+    },
+    "(?:^|\\n)[ \\t]+llm_judge:(?:\\s*\\|[-+]?\\s*\\n(?:(?:[ \\t]{6,}.*)?\\n)*|\\s+(?!\\|)[^\\n]+)": {
+      "regexFlags": "g",
+      "filterFileRegex": ".*\\.(yaml|yml)",
+      "decorations": [
+        {
+          "color": "rgb(249, 60, 129)",
+          "before": {
+            // "contentText": "👩‍⚖️ "
+          }
+        }
+      ]
+    }
+  },
+  "highlight.enabled": true
 }

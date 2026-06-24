@@ -15,38 +15,156 @@
               name: default
               type: search
     prompt: |
-      Find movies with 'rich British person India' (use text search) in their plot and bucket them by decade of their 'release_year'.
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and bucket them by decade of their 'release_year'.
   expected:
     llm_judge: |
-      The $response yield the same number of movies per decade as this query yields:
-        aggregate([
-          {
-            $searchMeta: {
-              facet: {
-                operator: {
-                  text: {
-                    query: "rich British person India",
-                    path: "plot"
-                  }
-                },
-                facets: {
-                  decade: {
-                    type: "number",
-                    path: "release_year",
-                    boundaries: [
-                      1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990,
-                      2000, 2010, 2020, 2030
-                    ],
-                    default: "other"
-                  }
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query.
+
+      ### Reference query
+      aggregate([
+        {
+          $searchMeta: {
+            facet: {
+              operator: {
+                text: {
+                  query: "father daughter family",
+                  path: "plot"
                 }
               },
-              index: "default"
-            }
+              facets: {
+                decade: {
+                  type: "number",
+                  path: "release_year",
+                  boundaries: [
+                    1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990,
+                    2000, 2010, 2020, 2030
+                  ],
+                  default: "other"
+                }
+              }
+            },
+            index: "default"
           }
-        ])
-      * reduce the score to 0 if $response is empty.
-      * multiply the score by 0.2x if no search index was used in $conversation to fetch the results.
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
     summary: number facets for text search query
   origin: null
+- label: String Facets
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: false
+                  fields:
+                    plot:
+                      type: string
+                    genres:
+                      type: stringFacet
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot and return the count per 'genres' value.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same number of movies per genre as the reference facet query.
+
+      ### Reference query
+      aggregate([
+        {
+          $searchMeta: {
+            facet: {
+              operator: {
+                text: {
+                  query: "doctor scientist experiment",
+                  path: "plot"
+                }
+              },
+              facets: {
+                genre: {
+                  type: "string",
+                  path: "genres"
+                }
+              }
+            },
+            index: "default"
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when per-genre counts in $response for matches in the 'movies' collection match the reference query.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: string facets for text search query
+- label: Date Facets
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: false
+                  fields:
+                    plot:
+                      type: string
+                    released:
+                      type: date
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and bucket them by decade of their 'released' date.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query.
+
+      ### Reference query
+      aggregate([
+        {
+          $searchMeta: {
+            facet: {
+              operator: {
+                text: {
+                  query: "revolution war world",
+                  path: "plot"
+                }
+              },
+              facets: {
+                decade: {
+                  type: "date",
+                  path: "released",
+                  boundaries: [
+                    ISODate("1970-01-01"),
+                    ISODate("1980-01-01"),
+                    ISODate("1990-01-01"),
+                    ISODate("2000-01-01"),
+                    ISODate("2010-01-01"),
+                    ISODate("2020-01-01"),
+                    ISODate("2030-01-01")
+                  ],
+                  default: "other"
+                }
+              }
+            },
+            index: "default"
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: date facets for text search query

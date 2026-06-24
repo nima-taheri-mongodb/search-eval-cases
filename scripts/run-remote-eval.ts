@@ -19,6 +19,7 @@ import {
   mergeEvalParameters,
   parameterKeysForLog,
   postEvalHttp,
+  compileLabelRegex,
   resolveCaseFilesFromGlobs,
   type RemoteEvalStartMetadata,
   type RemoteEvalSummary,
@@ -43,6 +44,7 @@ interface ParsedCli {
   skipTraces: boolean;
   dryRun: boolean;
   paramsJson?: string;
+  labelRegex?: string;
   globs: string[];
 }
 
@@ -117,6 +119,11 @@ function parseCli(argv: string[]): ParsedCli {
       i++;
       continue;
     }
+    if (!afterSep && a === "--label-regex") {
+      out.labelRegex = argv[++i] ?? die("--label-regex requires a pattern");
+      i++;
+      continue;
+    }
     if (!afterSep && a.startsWith("--")) {
       die(`Unknown flag: ${a}`);
     }
@@ -151,7 +158,7 @@ async function main(): Promise<void> {
     die(
       "Usage: pnpm eval:remote [flags] [glob...]\n" +
         "       pnpm eval:remote [flags] -- <glob> [glob...]\n" +
-        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --output-dir DIR --skip-traces --dry-run",
+        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --label-regex PATTERN --output-dir DIR --skip-traces --dry-run",
     );
   }
 
@@ -166,10 +173,34 @@ async function main(): Promise<void> {
     cli.datasetDir,
     REPO_ROOT,
   );
+
+  const labelPattern =
+    cli.labelRegex?.trim() ||
+    process.env.LABEL_REGEX?.trim() ||
+    undefined;
+  let labelRegex: RegExp | undefined;
+  if (labelPattern) {
+    try {
+      labelRegex = compileLabelRegex(labelPattern);
+    } catch (e) {
+      die(e instanceof Error ? e.message : String(e));
+    }
+    log(`Label regex: /${labelPattern}/`);
+  }
+
   const { rows, sources } = await loadRowsFromCaseFilesDetailed(
     files,
     absDatasetDir,
+    { labelRegex },
   );
+
+  if (rows.length === 0) {
+    die(
+      labelRegex
+        ? "No rows matched the file glob(s) and --label-regex filter"
+        : "No rows loaded from matched case files",
+    );
+  }
 
   let projectId = cli.projectId;
   if (!projectId) {

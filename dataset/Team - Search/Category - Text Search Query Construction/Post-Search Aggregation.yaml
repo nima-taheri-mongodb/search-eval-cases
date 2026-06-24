@@ -10,28 +10,353 @@
               name: default
               type: search
     prompt: |
-      Find movies with 'Romance' in their genres and 'rich British person India' (use text search) in their plot.
+      On the 'movies' collection, find movies with 'Romance' in their genres and 'marriage wedding sweetheart' (use text search) in their plot.
   expected:
     llm_judge: |
-      The $response match the same movies as this query yields:
-        aggregate([
-          {
-            $search: {
-              index: "default",
-              text: {
-                query: "rich British person India",
-                path: "plot"
-              }
-            }
-          },
-          {
-            $match: {
-              genres: "Romance"
+      ### Success criterion
+      $response lists the same movies from the 'movies' collection as the reference query.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "marriage wedding sweetheart",
+              path: "plot"
             }
           }
-        ])
-      * reduce the score to 0 if $response is empty.
-      * multiply the score by 0.2x if no search index was used in $conversation to fetch the results.
+        },
+        {
+          $match: {
+            genres: "Romance"
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when $response matches the reference query results from the 'movies' collection.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
     summary: aggregate search results for text search query
   origin: null
+- label: Parallel Sub-Pipelines
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. In a single aggregation pass, return both the total number of matches and the list of their titles.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      $response returns both the total match count and the titles from a single aggregation on the 'movies' collection matching the reference query.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "doctor scientist experiment",
+              path: "plot"
+            }
+          }
+        },
+        {
+          $facet: {
+            count: [{ $count: "total" }],
+            titles: [{ $project: { _id: 0, title: 1 } }]
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when $response includes both the correct total count and title list from the reference query on the 'movies' collection.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: parallel sub-pipelines for text search query
+- label: Flatten Arrays
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and output one document per cast member.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      $response yields one row per cast member for each matched movie in the 'movies' collection.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "terrorists hostage kill navy",
+              path: "plot"
+            }
+          }
+        },
+        {
+          $unwind: "$cast"
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when $response matches the reference query on the 'movies' collection (one document per cast member).
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: flatten arrays for text search query
+- label: Bucket into Ranges
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in the 'plot' field and bucket them by the 'rating' field into ranges [0, 5), [5, 7), and [7, 10].
+  expected:
+    llm_judge: |
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same per-bucket counts as the reference query.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "father daughter family",
+              path: "plot"
+            }
+          }
+        },
+        {
+          $bucket: {
+            groupBy: "$rating",
+            boundaries: [0, 5, 7, 10],
+            default: "other",
+            output: { count: { $sum: 1 } }
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when per-bucket counts in $response for matches in the 'movies' collection match the reference query.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: bucket into ranges for text search query
+- label: Shorthand Frequency Count
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and show how many of them each director has, sorted from most to fewest.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same per-director counts (sorted descending) as the reference query.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "revolution war world",
+              path: "plot"
+            }
+          }
+        },
+        {
+          $sortByCount: "$director"
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when per-director counts and sort order in $response for matches in the 'movies' collection match the reference query.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: shorthand frequency count for text search query
+- label: Join with Other Collections
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'alien spaceship earth invasion' (use text search) in the 'plot' field. For each match, attach a 'filmography' array of all movies in the 'movies' collection that share the same 'director' field value.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      Each matched movie from the 'movies' collection in $response includes a 'filmography' array of movies sharing its director.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "alien spaceship earth invasion",
+              path: "plot"
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: "movies",
+            localField: "director",
+            foreignField: "director",
+            as: "filmography"
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when $response matches the reference query on the 'movies' collection (each match has the correct 'filmography' array).
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: join with other collections for text search query
+- label: Promote Embedded Document
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. For each, build a sub-document of { title, rating } and promote it to be the top-level document.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      $response promotes a '{ title, rating }' sub-document to the root for each matched movie in the 'movies' collection.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "doctor scientist experiment",
+              path: "plot"
+            }
+          }
+        },
+        {
+          $replaceWith: { title: "$title", rating: "$rating" }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when $response matches the reference query on the 'movies' collection (root documents contain only 'title' and 'rating').
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: promote embedded document for text search query
+- label: Materialize Results
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and save the matching documents into a new collection named 'family_movies'.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      A 'family_movies' collection exists containing the same movies from the 'movies' collection as the reference query.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "father daughter family",
+              path: "plot"
+            }
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when 'family_movies' exists and contains the same documents from the 'movies' collection as the reference query.
+      - Reduce the score to 0 if the 'family_movies' collection is missing or empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to produce the results.
+  metadata:
+    summary: materialize results for text search query
+- label: Random Sample
+  input:
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+    prompt: |
+      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and return a random sample of 2 of them.
+  expected:
+    llm_judge: |
+      ### Success criterion
+      $response contains at most 2 movies from the 'movies' collection, each drawn from the reference query result set.
+
+      ### Reference query
+      aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: "terrorists hostage kill navy",
+              path: "plot"
+            }
+          }
+        }
+      ])
+
+      ### Scoring
+      - Score 1.0 when $response contains at most 2 movies from the 'movies' collection and every returned movie appears in the reference query results.
+      - Reduce the score to 0 if $response is empty.
+      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  metadata:
+    summary: random sample for text search query

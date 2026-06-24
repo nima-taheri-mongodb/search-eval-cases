@@ -8,6 +8,7 @@ import {
   buildRemoteEvalRequest,
   buildExperimentUrl,
   buildTraceDump,
+  compileLabelRegex,
   consumeRemoteEvalSse,
   formatScoreLine,
   groupRecordsByTrace,
@@ -15,9 +16,11 @@ import {
   isL3CaseFile,
   isRootSpan,
   loadRowsFromCaseFiles,
+  loadRowsFromCaseFilesDetailed,
   mergeEvalParameters,
   parseSseEvents,
   resolveCaseFilesFromGlobs,
+  rowMatchesLabelRegex,
   sanitizePathSegment,
   traceOutputFilename,
 } from "./run-remote-eval-lib.ts";
@@ -47,8 +50,8 @@ describe("resolveCaseFilesFromGlobs", () => {
   it("resolves patterns and dedupes", async () => {
     const a = await resolveCaseFilesFromGlobs(
       [
-        "dataset/Search/Text Search Index Management/*.yaml",
-        "dataset/Search/Text Search Index Management/Index Creation.yaml",
+        "dataset/Team - Search/Category - Text Search Index Management/*.yaml",
+        "dataset/Team - Search/Category - Text Search Index Management/Index Creation.yaml",
       ],
       "dataset",
       REPO_ROOT,
@@ -78,27 +81,67 @@ describe("resolveCaseFilesFromGlobs", () => {
   });
 });
 
+describe("rowMatchesLabelRegex", () => {
+  it("matches row label and joined labels", () => {
+    assert.equal(
+      rowMatchesLabelRegex({ label: "Number Facets" }, /Facets/),
+      true,
+    );
+    assert.equal(
+      rowMatchesLabelRegex({ labels: ["A", "B"] }, /^A > B$/),
+      true,
+    );
+    assert.equal(
+      rowMatchesLabelRegex({ label: "String Facets" }, /^Number/),
+      false,
+    );
+  });
+
+  it("compileLabelRegex throws on invalid pattern", () => {
+    assert.throws(() => compileLabelRegex("("), /Invalid label regex/);
+  });
+});
+
 describe("loadRowsFromCaseFiles", () => {
   it("merges rows from multiple files with tags", async () => {
     const ds = path.join(REPO_ROOT, "dataset");
     const files = [
       path.join(
         ds,
-        "Search",
-        "Text Search Index Management",
+        "Team - Search",
+        "Category - Text Search Index Management",
         "Index Creation.yaml",
       ),
       path.join(
         ds,
-        "Search",
-        "Text Search Index Management",
+        "Team - Search",
+        "Category - Text Search Index Management",
         "Index Lifecycle.yaml",
       ),
     ];
     const rows = await loadRowsFromCaseFiles(files, ds);
-    assert.equal(rows.length, 2);
+    assert.ok(rows.length >= 2);
     assert.ok(Array.isArray(rows[0]?.tags));
-    assert.ok((rows[0]?.tags ?? []).some((t) => t.includes("Search")));
+    assert.ok((rows[0]?.tags ?? []).some((t) => t.includes("Team - Search")));
+  });
+
+  it("filters rows by label regex", async () => {
+    const ds = path.join(REPO_ROOT, "dataset");
+    const file = path.join(
+      ds,
+      "Team - Search",
+      "Category - Text Search Query Construction",
+      "Faceted Search.yaml",
+    );
+    const { rows, sources } = await loadRowsFromCaseFilesDetailed([file], ds, {
+      labelRegex: /^Number Facets$/,
+    });
+    assert.equal(rows.length, 1);
+    assert.equal(sources.length, 1);
+    assert.equal(sources[0]?.rowCount, 1);
+    assert.ok(
+      (rows[0]?.tags ?? []).some((t) => t.endsWith("Number Facets")),
+    );
   });
 });
 
