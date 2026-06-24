@@ -12,31 +12,29 @@ import {
   readDatasetMeta,
 } from "./datasets-layout.js";
 import {
-  pathToTagsPrefix,
+  isCasesFile,
+} from "./datasets-layout.js";
+import {
+  enrichRowMetadata,
+  getCaseMetadata,
   rowForBraintrust,
-  suffixFromRow,
-  TAXONOMY_FILENAME,
+  taxonomyPathFromCasesFile,
   type CaseRow,
 } from "./taxonomy-lib.js";
 
-/** Same rules as `findCaseFiles` in datasets-layout: L1/L2/L3.yaml under dataset root. */
-export function isL3CaseFile(filePath: string, datasetDir: string): boolean {
-  const rel = path.relative(datasetDir, filePath);
-  const parts = rel.split(path.sep);
-  if (parts.length !== 3) {
-    return false;
-  }
-  const base = parts[2]!;
-  return (
-    base.endsWith(".yaml") &&
-    base !== TAXONOMY_FILENAME &&
-    base !== META_FILENAME &&
-    base !== SYNC_STATE_FILENAME
-  );
+/** Same rules as `findCaseFiles` in datasets-layout: cases.yaml under a dataset folder. */
+export function isCasesFileForGlob(
+  filePath: string,
+  datasetDir: string,
+): boolean {
+  return isCasesFile(filePath, datasetDir);
 }
 
+/** @deprecated Use `isCasesFileForGlob`. */
+export const isL3CaseFile = isCasesFileForGlob;
+
 /**
- * Expand glob patterns (relative to `cwd`), keep only L3 case files under `datasetDir`.
+ * Expand glob patterns (relative to `cwd`), keep only cases.yaml files under `datasetDir`.
  */
 export async function resolveCaseFilesFromGlobs(
   patterns: string[],
@@ -54,7 +52,7 @@ export async function resolveCaseFilesFromGlobs(
     const iter = glob(pattern, { cwd });
     for await (const entry of iter) {
       const abs = path.resolve(cwd, entry);
-      if (!isL3CaseFile(abs, absDatasetDir)) {
+      if (!isCasesFile(abs, absDatasetDir)) {
         continue;
       }
       const key = path.normalize(abs);
@@ -68,7 +66,7 @@ export async function resolveCaseFilesFromGlobs(
 
   if (out.length === 0) {
     throw new Error(
-      `No L3 case files matched patterns under ${absDatasetDir}: ${patterns.join(", ")}`,
+      `No cases.yaml files matched patterns under ${absDatasetDir}: ${patterns.join(", ")}`,
     );
   }
 
@@ -81,27 +79,49 @@ export interface LoadedCaseRows {
   sources: CaseFileLoadSource[];
 }
 
+export interface MetadataRegexFilter {
+  key: string;
+  regex: RegExp;
+}
+
 export interface LoadRowsOptions {
-  /** When set, only rows whose `label` / `labels` match this regex are included. */
-  labelRegex?: RegExp;
+  /** When set, only rows whose `metadata[key]` matches this regex are included. */
+  metadataRegex?: MetadataRegexFilter;
 }
 
-/** Case label string used for `--label-regex` filtering (joins `labels` with ` > `). */
-export function rowLabelText(row: CaseRow): string {
-  const suffix = suffixFromRow(row);
-  return suffix.join(" > ");
+export function rowMetadataText(row: CaseRow, key: string): string {
+  const metadata = row.metadata;
+  if (!metadata || typeof metadata !== "object") {
+    return "";
+  }
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : "";
 }
 
-export function rowMatchesLabelRegex(row: CaseRow, labelRegex: RegExp): boolean {
-  return labelRegex.test(rowLabelText(row));
+export function rowMatchesMetadataRegex(
+  row: CaseRow,
+  filter: MetadataRegexFilter,
+): boolean {
+  return filter.regex.test(rowMetadataText(row, filter.key));
 }
 
-export function compileLabelRegex(pattern: string): RegExp {
+/** Parse a `key=<regex>` spec into a metadata key and compiled RegExp. */
+export function compileMetadataRegex(spec: string): MetadataRegexFilter {
+  const sep = spec.indexOf("=");
+  const key = sep >= 0 ? spec.slice(0, sep).trim() : "";
+  if (sep < 0 || !key) {
+    throw new Error(
+      `--metadata-regex must be in the form key=<regex>, got: ${spec}`,
+    );
+  }
+  const pattern = spec.slice(sep + 1);
   try {
-    return new RegExp(pattern);
+    return { key, regex: new RegExp(pattern) };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`Invalid label regex /${pattern}/: ${msg}`);
+    throw new Error(
+      `Invalid metadata regex /${pattern}/ for key '${key}': ${msg}`,
+    );
   }
 }
 
@@ -118,7 +138,7 @@ export interface CaseFileLoadSource {
   file: string;
   rowCount: number;
   rowIds: string[];
-  tagsPreview: string[];
+  namesPreview: string[];
 }
 
 export async function loadRowsFromCaseFilesDetailed(
@@ -127,27 +147,32 @@ export async function loadRowsFromCaseFilesDetailed(
   options?: LoadRowsOptions,
 ): Promise<LoadedCaseRows> {
   const absDatasetDir = path.resolve(datasetDir);
-  const labelRegex = options?.labelRegex;
+  const metadataRegex = options?.metadataRegex;
   const rows: DatasetRow[] = [];
   const sources: CaseFileLoadSource[] = [];
   for (const file of files) {
-    const prefix = pathToTagsPrefix(file, absDatasetDir);
+    const { path: taxonomyPath } = taxonomyPathFromCasesFile(
+      file,
+      absDatasetDir,
+    );
     const fileRows = await readCaseRowsFile(file);
     const rowIds: string[] = [];
-    const tagsPreview: string[] = [];
+    const namesPreview: string[] = [];
     let rowCount = 0;
     for (const row of fileRows) {
-      if (labelRegex && !rowMatchesLabelRegex(row, labelRegex)) {
+      const enriched = enrichRowMetadata(row, taxonomyPath);
+      if (metadataRegex && !rowMatchesMetadataRegex(enriched, metadataRegex)) {
         continue;
       }
-      const btRow = rowForBraintrust(prefix, row);
+      const btRow = rowForBraintrust(enriched);
       rows.push(btRow);
       rowCount += 1;
       if (btRow.id) {
         rowIds.push(btRow.id);
       }
-      if (btRow.tags?.length) {
-        tagsPreview.push(btRow.tags.join(" > "));
+      const meta = getCaseMetadata(enriched);
+      if (meta?.name) {
+        namesPreview.push(meta.name);
       }
     }
     if (rowCount > 0) {
@@ -155,7 +180,7 @@ export async function loadRowsFromCaseFilesDetailed(
         file,
         rowCount,
         rowIds,
-        tagsPreview,
+        namesPreview,
       });
     }
   }
@@ -171,21 +196,21 @@ export async function inferProjectIdFromMeta(
   datasetDir: string,
 ): Promise<string | undefined> {
   const absDatasetDir = path.resolve(datasetDir);
-  const l1Names = new Set<string>();
+  const datasetNames = new Set<string>();
   for (const f of files) {
     const rel = path.relative(absDatasetDir, f);
     if (rel.startsWith("..") || path.isAbsolute(rel)) {
       continue;
     }
-    const l1 = rel.split(path.sep)[0];
-    if (l1) {
-      l1Names.add(l1);
+    const dataset = rel.split(path.sep)[0];
+    if (dataset) {
+      datasetNames.add(dataset);
     }
   }
 
   const projectIds = new Set<string>();
-  for (const l1 of l1Names) {
-    const meta = await readDatasetMeta(path.join(absDatasetDir, l1));
+  for (const datasetName of datasetNames) {
+    const meta = await readDatasetMeta(path.join(absDatasetDir, datasetName));
     const pid = meta?.project_id;
     if (typeof pid === "string" && pid.trim()) {
       projectIds.add(pid.trim());

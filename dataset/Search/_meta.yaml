@@ -1,0 +1,113 @@
+dataset:
+  id: 8fdcbaa2-4b3b-4583-94d6-486e93fd4514
+  name: Search
+  project_id: 025be6d9-cc52-4d9e-a413-d8a9a48a8f6b
+  description: ""
+  created: 2026-06-09T01:52:23.149Z
+  created_at: null
+  metadata:
+    __schemas:
+      input:
+        $id: https://mongodb-eval-cases/schemas/input.schema.json
+        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        required:
+          - prompt
+        properties:
+          prompt:
+            type: string
+            description: The natural-language task sent to the agent for this case.
+          db_seed:
+            type: array
+            items:
+              anyOf:
+                - type: string
+                  description: Bare collection name to seed with its bundled documents and no indexes.
+                - type: object
+                  description: Single-key object mapping a collection name to its seeding setup.
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      indexes:
+                        type: array
+                        items:
+                          oneOf:
+                            - type: object
+                              required:
+                                - type
+                                - name
+                                - definition
+                              properties:
+                                name:
+                                  type: string
+                                  description: Unique name of the search index. It is not optional because it is used to await readiness before querying.
+                                type:
+                                  enum:
+                                    - search
+                                    - vectorSearch
+                                  type: string
+                                  description: "Index kind: 'search' for Atlas Search, 'vectorSearch' for vector search."
+                                definition:
+                                  type: object
+                                  description: |-
+                                    Raw Atlas search index definition.
+
+                                    For more details, see the MongoDB Atlas Search documentation: https://www.mongodb.com/docs/manual/reference/command/createSearchIndexes/
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              description: An Atlas Search or Vector Search index to build on the collection.
+                              additionalProperties: false
+                            - type: object
+                              required:
+                                - type
+                                - key
+                              properties:
+                                key:
+                                  type: object
+                                  description: Index key spec mapping field name to sort order (1 ascending, -1 descending).
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties:
+                                    anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: -1
+                                name:
+                                  type: string
+                                  description: Optional index name; MongoDB auto-generates one when omitted.
+                                type:
+                                  type: string
+                                  const: classic
+                                  description: Marks this as a classic (non-search) MongoDB index.
+                              description: A classic MongoDB index, plus any additional createIndex options.
+                              additionalProperties: {}
+                          description: A single index to create on a seeded collection, discriminated by 'type'.
+                        description: Indexes to create after documents are inserted.
+                    description: Setup applied to a seeded collection (currently just its indexes).
+                    additionalProperties: false
+              description: A collection to seed, optionally with index setup.
+            description: Collections to seed into a fresh temp database before the agent runs.
+        description: Input for a single MongoDB agent eval case.
+        additionalProperties: false
+      expected:
+        $id: https://mongodb-eval-cases/schemas/expected.schema.json
+        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        properties:
+          reference_answer:
+            type: string
+            description: Optional illustrative command or answer that would satisfy the judge.
+          llm_judge:
+            anyOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+            description: Grading criteria (one string or several) the LLM judge checks the output against.
+        description: Expected outcome for a case, expressed as LLM-judge criteria.
+        additionalProperties: false
+      updated_at: 2026-06-24T17:22:06.780Z

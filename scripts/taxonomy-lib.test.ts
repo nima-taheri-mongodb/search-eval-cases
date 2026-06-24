@@ -1,19 +1,27 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  CASES_FILENAME,
+  casesFilePathForRecord,
+  enrichRowMetadata,
+  flattenTaxonomy,
+  formatTaxonomyBranchKey,
   mergeTaxonomy,
+  metadataFromTaxonomyPath,
+  parseTaxonomyKey,
   parseTaxonomyYaml,
-  pathToTagsPrefix,
+  rowMatchKey,
   rowForBraintrust,
-  rowTags,
   serializeTaxonomy,
-  tagsToLocation,
-  taxonomyFromTagPaths,
+  taxonomyFromMetadataPaths,
+  taxonomyPathFromCasesFile,
   type CaseRow,
+  type TaxonomyRoot,
 } from "./taxonomy-lib.ts";
 import {
+  findCaseFiles,
+  groupCaseFilesByDataset,
   loadAggregatedDataset,
-  groupCaseFilesByL1,
 } from "./datasets-layout.ts";
 import path from "node:path";
 
@@ -23,131 +31,165 @@ const DATASET_DIR = path.join(
   "dataset",
 );
 
-describe("pathToTagsPrefix", () => {
-  it("extracts L1/L2/L3 from case file path", () => {
+describe("parseTaxonomyKey", () => {
+  it("parses typed branch keys", () => {
+    assert.deepEqual(parseTaxonomyKey("category=Faceted Search"), {
+      kind: "category",
+      value: "Faceted Search",
+    });
+    assert.deepEqual(parseTaxonomyKey("Number Facets"), {
+      kind: "leaf",
+      name: "Number Facets",
+    });
+  });
+});
+
+describe("parseTaxonomyYaml", () => {
+  it("round-trips typed taxonomy", () => {
+    const yaml = `
+taxonomy:
+  - dataset=Search:
+      - category=Text Search:
+          - subcategory=Facets:
+              - Number Facets: number facets for text search query
+`;
+    const roots = parseTaxonomyYaml(yaml);
+    assert.equal(roots[0]?.dataset, "Search");
+    const out = serializeTaxonomy(roots);
+    const again = parseTaxonomyYaml(out);
+    assert.equal(again[0]?.dataset, "Search");
+    assert.deepEqual(flattenTaxonomy(again), flattenTaxonomy(roots));
+  });
+});
+
+describe("taxonomyPathFromCasesFile", () => {
+  it("maps cases.yaml path to dataset and taxonomy path", () => {
     const file = path.join(
       DATASET_DIR,
       "Team - Search",
-      "Category - Text Search Index Management",
-      "Index Lifecycle.yaml",
+      "Text Search Query Construction",
+      "Faceted Search",
+      CASES_FILENAME,
     );
-    assert.deepEqual(pathToTagsPrefix(file, DATASET_DIR), [
-      "Team - Search",
-      "Category - Text Search Index Management",
-      "Index Lifecycle",
-    ]);
+    assert.deepEqual(taxonomyPathFromCasesFile(file, DATASET_DIR), {
+      dataset: "Team - Search",
+      path: {
+        category: "Text Search Query Construction",
+        subcategory: "Faceted Search",
+      },
+    });
   });
+});
 
-  it("rejects paths that are not L1/L2/L3.yaml", () => {
-    assert.throws(() =>
-      pathToTagsPrefix(path.join(DATASET_DIR, "Search.yaml"), DATASET_DIR),
+describe("rowMatchKey", () => {
+  it("builds stable keys from dataset and metadata", () => {
+    const metadata = metadataFromTaxonomyPath(
+      { category: "A", subcategory: "B" },
+      "Case",
+      "desc",
+    );
+    assert.equal(
+      rowMatchKey("Team - Search", metadata),
+      ["Team - Search", "A", "B", "", "", "Case"].join("\0"),
     );
   });
 });
 
-describe("rowTags", () => {
-  it("builds full tag chain from path and label", () => {
-    const prefix = [
-      "Search",
-      "Text Search Index Management",
-      "Index Creation",
-    ] as [string, string, string];
-    const row: CaseRow = { label: "Dynamic Mapping" };
-    assert.deepEqual(rowTags(prefix, row), [
-      "Search",
-      "Text Search Index Management",
-      "Index Creation",
-      "Dynamic Mapping",
+describe("enrichRowMetadata", () => {
+  it("orders metadata keys name, description, then taxonomy path", () => {
+    const row: CaseRow = {
+      input: { prompt: "q" },
+      metadata: {
+        subcategory: "Index Creation",
+        category: "Text Search Index Management",
+        description: "dynamic mapping mode",
+        name: "Dynamic Mapping Mode",
+      },
+    };
+    const enriched = enrichRowMetadata(row, {});
+    assert.deepEqual(Object.keys(enriched.metadata as object), [
+      "name",
+      "description",
+      "category",
+      "subcategory",
     ]);
   });
 
-  it("uses labels array for deeper levels", () => {
-    const prefix = ["A", "B", "C"] as [string, string, string];
-    const row: CaseRow = { labels: ["D", "E"] };
-    assert.deepEqual(rowTags(prefix, row), ["A", "B", "C", "D", "E"]);
-  });
-});
-
-describe("tagsToLocation", () => {
-  it("maps 4 tags to L3 file plus label suffix", () => {
-    const loc = tagsToLocation(
-      [
-        "Search",
-        "Text Search Index Management",
-        "Index Creation",
-        "Dynamic Mapping",
-      ],
-      DATASET_DIR,
-    );
-    assert.equal(loc.l3, "Index Creation");
-    assert.deepEqual(loc.labelSuffix, ["Dynamic Mapping"]);
-    assert.ok(loc.filePath.endsWith("Index Creation.yaml"));
+  it("preserves extra metadata keys after the canonical ones", () => {
+    const row: CaseRow = {
+      input: { prompt: "q" },
+      metadata: {
+        custom: "x",
+        category: "Vector",
+        name: "Pre-filter",
+        description: "d",
+      },
+    };
+    const enriched = enrichRowMetadata(row, { group: "Pre-Filtering" });
+    assert.deepEqual(Object.keys(enriched.metadata as object), [
+      "name",
+      "description",
+      "category",
+      "group",
+      "custom",
+    ]);
   });
 });
 
 describe("rowForBraintrust", () => {
-  it("injects tags and omits local label fields", () => {
-    const prefix = [
-      "Search",
-      "Text Search Index Management",
-      "Index Creation",
-    ] as [string, string, string];
+  it("passes metadata through without tags", () => {
     const row: CaseRow = {
-      label: "Dynamic Mapping",
       input: { prompt: "x" },
+      metadata: {
+        category: "A",
+        name: "Case",
+        description: "desc",
+      },
     };
-    const bt = rowForBraintrust(prefix, row);
-    assert.deepEqual(bt.tags, [
-      "Search",
-      "Text Search Index Management",
-      "Index Creation",
-      "Dynamic Mapping",
-    ]);
-    assert.equal((bt as CaseRow).label, undefined);
+    const bt = rowForBraintrust(row);
+    assert.equal((bt as { tags?: string[] }).tags, undefined);
+    assert.equal(
+      (bt.metadata as { name?: string }).name,
+      "Case",
+    );
   });
 });
 
-describe("taxonomy yaml", () => {
-  it("round-trips parse and serialize", () => {
-    const yaml = `
-taxonomy:
-  - Search:
-      - Text Search Index Management:
-          - Index Deletion: |
-              index deletion for search index
-`;
-    const roots = parseTaxonomyYaml(yaml);
-    assert.equal(roots[0]?.name, "Search");
-    const out = serializeTaxonomy(roots);
-    const again = parseTaxonomyYaml(out);
-    assert.equal(again[0]?.name, "Search");
-  });
-});
-
-describe("taxonomyFromTagPaths", () => {
-  it("builds nested taxonomy for L4 tag paths", () => {
-    const roots = taxonomyFromTagPaths([
+describe("taxonomyFromMetadataPaths", () => {
+  it("builds nested taxonomy from metadata records", () => {
+    const roots = taxonomyFromMetadataPaths([
       {
-        tags: [
-          "Search",
-          "Text Search Index Management",
-          "Index Creation",
-          "Dynamic Mapping",
-        ],
-        summary: "index creation for search index with dynamic mapping",
+        dataset: "Team - Search",
+        path: {
+          category: "Text Search Index Management",
+          subcategory: "Index Creation",
+        },
+        name: "Dynamic Mapping Mode",
+        description: "dynamic mapping mode for text search index creation",
       },
     ]);
-    assert.equal(roots[0]?.name, "Search");
+    assert.equal(roots[0]?.dataset, "Team - Search");
     const serialized = serializeTaxonomy(roots);
-    assert.match(serialized, /Dynamic Mapping/);
+    assert.match(serialized, /category=Text Search Index Management/);
+    assert.match(serialized, /Dynamic Mapping Mode/);
   });
 
-  it("merge preserves existing summaries", () => {
-    const existing = taxonomyFromTagPaths([
-      { tags: ["Search", "A", "B"], summary: "original" },
+  it("merge preserves existing descriptions", () => {
+    const existing = taxonomyFromMetadataPaths([
+      {
+        dataset: "Search",
+        path: { category: "A", subcategory: "B" },
+        name: "Leaf",
+        description: "original",
+      },
     ]);
-    const discovered = taxonomyFromTagPaths([
-      { tags: ["Search", "A", "C"], summary: "new leaf" },
+    const discovered = taxonomyFromMetadataPaths([
+      {
+        dataset: "Search",
+        path: { category: "A", subcategory: "C" },
+        name: "Other",
+        description: "new leaf",
+      },
     ]);
     const merged = mergeTaxonomy(existing, discovered);
     const yaml = serializeTaxonomy(merged);
@@ -156,50 +198,48 @@ describe("taxonomyFromTagPaths", () => {
   });
 });
 
-describe("loadAggregatedDataset", () => {
-  it("aggregates L3 files under Team - Search into one dataset", async () => {
-    const caseFiles = [
-      path.join(
-        DATASET_DIR,
-        "Team - Search",
-        "Category - Text Search Index Management",
-        "Index Lifecycle.yaml",
-      ),
-      path.join(
-        DATASET_DIR,
-        "Team - Search",
-        "Category - Text Search Index Management",
-        "Index Creation.yaml",
-      ),
-    ];
-    const agg = await loadAggregatedDataset(
-      "Team - Search",
-      caseFiles,
-      DATASET_DIR,
+describe("formatTaxonomyBranchKey", () => {
+  it("formats branch keys", () => {
+    assert.equal(
+      formatTaxonomyBranchKey("category", "Faceted Search"),
+      "category=Faceted Search",
     );
-    assert.equal(agg.name, "Team - Search");
-    assert.ok(agg.rows.length >= 2);
-    const creation = agg.rows.find((r) =>
-      r.tags?.includes("Dynamic Mapping Mode"),
-    );
-    assert.ok(creation);
-    assert.deepEqual(creation?.tags, [
-      "Team - Search",
-      "Category - Text Search Index Management",
-      "Index Creation",
-      "Dynamic Mapping Mode",
-    ]);
   });
 });
 
-describe("groupCaseFilesByL1", () => {
-  it("buckets files by first path segment", () => {
-    const files = [
-      path.join(DATASET_DIR, "Search", "A", "B.yaml"),
-      path.join(DATASET_DIR, "Vector", "A", "B.yaml"),
-    ];
-    const groups = groupCaseFilesByL1(files, DATASET_DIR);
-    assert.equal(groups.get("Search")?.length, 1);
-    assert.equal(groups.get("Vector")?.length, 1);
+describe("findCaseFiles", () => {
+  it("discovers cases.yaml under dataset folders", async () => {
+    const files = await findCaseFiles(DATASET_DIR);
+    assert.ok(files.length > 0);
+    assert.ok(files.every((f) => f.endsWith(CASES_FILENAME)));
+  });
+});
+
+describe("loadAggregatedDataset", () => {
+  it("aggregates cases.yaml under a dataset", async () => {
+    const caseFiles = await findCaseFiles(DATASET_DIR);
+    const groups = groupCaseFilesByDataset(caseFiles, DATASET_DIR);
+    const search = groups.get("Search") ?? [];
+    assert.ok(search.length > 0);
+    const agg = await loadAggregatedDataset("Search", search, DATASET_DIR);
+    assert.equal(agg.name, "Search");
+    assert.ok(agg.rows.length > 0);
+    const facets = agg.rows.find(
+      (r) =>
+        (r.metadata as { name?: string } | undefined)?.name === "Number Facets",
+    );
+    assert.ok(facets);
+    assert.equal(
+      (facets?.metadata as { category?: string }).category,
+      "Text Search Query Construction",
+    );
+  });
+});
+
+describe("groupCaseFilesByDataset", () => {
+  it("buckets files by dataset folder", async () => {
+    const files = await findCaseFiles(DATASET_DIR);
+    const groups = groupCaseFilesByDataset(files, DATASET_DIR);
+    assert.ok(groups.get("Search")?.length);
   });
 });

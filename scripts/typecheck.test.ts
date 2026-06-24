@@ -10,20 +10,20 @@ import {
 
 describe("globToRegExp", () => {
   it("matches path segments with wildcards", () => {
-    const re = globToRegExp("dataset/*/*/*.yaml");
+    const re = globToRegExp("dataset/**/cases.yaml");
     assert.match(
-      "dataset/Search/Text Search Index Management/Index Creation.yaml",
+      "dataset/Team - Search/Text Search Query Construction/Faceted Search/cases.yaml",
       re,
     );
-    assert.doesNotMatch("dataset/Search/L3.yaml", re);
-    assert.doesNotMatch("dataset/Search/_meta.yaml", re);
+    assert.doesNotMatch("dataset/Team - Search/_meta.yaml", re);
+    assert.doesNotMatch("dataset/taxonomy.yaml", re);
   });
 });
 
 describe("schemaRuleForRelativePath", () => {
-  it("maps L3 case files to case-file schema", () => {
+  it("maps cases.yaml to case-file schema", () => {
     const rule = schemaRuleForRelativePath(
-      "dataset/Search/Text Search Index Management/Index Creation.yaml",
+      "dataset/Team - Search/Text Search Query Construction/Faceted Search/cases.yaml",
     );
     assert.equal(rule?.schemaFile, "case-file.schema.json");
   });
@@ -64,7 +64,7 @@ describe("validateParsedYaml", () => {
 describe("typecheckDatasetYaml", () => {
   it("validates all mapped dataset yaml files", async () => {
     const summary = await typecheckDatasetYaml();
-    assert.ok(summary.checked >= 4);
+    assert.ok(summary.checked >= 30);
     assert.equal(summary.failed, 0);
     assert.ok(summary.skipped >= 1);
     assert.equal(summary.passed, summary.checked);

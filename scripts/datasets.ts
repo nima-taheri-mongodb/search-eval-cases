@@ -2,15 +2,15 @@
 /**
  * Terraform-style sync for Braintrust datasets ↔ local YAML.
  *
- * Local layout: dataset/{L1}/{L2}/{L3}.yaml — root is a YAML sequence (array) of row
- * objects, schema-compatible with `schemas/case-file.schema.json`.
+ * Local layout: dataset/{dataset}/[{category}/…]/{cases.yaml}
  * Taxonomy: dataset/taxonomy.yaml guides folder scaffold; updated on pull/apply/scaffold.
  *
  *   scaffold  taxonomy → folder tree + row stubs
  *   plan      diff local vs remote using .sync-state.json baseline
  *   apply     execute plan (conservative by default; --prune for deletions)
  *   pull      remote → local YAML + refresh baseline + taxonomy
- *   push      deprecated alias for apply --prune
+ *             (additive by default; --prune mirrors remote, removing local
+ *             rows/files/datasets that no longer exist remotely)
  */
 
 import {
@@ -18,6 +18,7 @@ import {
   login,
   type BraintrustState,
 } from "braintrust";
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,10 +26,14 @@ import { parse, stringify } from "yaml";
 import {
   aggregatedToLocalDatasetRef,
   buildTaxonomyFromLocal,
+  findCaseFiles,
   findLocalRow,
   loadAllLocalDatasets,
   parseCaseRowsDocument,
+  pruneLocalToRemote,
+  readCaseRowsFile,
   readDatasetMeta,
+  writeCaseRowsFile,
   writeDatasetMeta,
   writeGroupedRows,
   type AggregatedDataset,
@@ -41,6 +46,7 @@ import {
   planExitCode,
   SYNC_STATE_FILENAME,
   type DatasetRow,
+  type DatasetSchemas,
   type LocalDatasetRef,
   type Plan,
   type PlanAction,
@@ -59,10 +65,13 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
 
 const DEFAULT_PROJECT = "mongodb-mcp-server-evals";
 const DEFAULT_DIR = "dataset";
+const SCHEMAS_DIR = path.join(REPO_ROOT, "schemas");
+const INPUT_SCHEMA_FILE = "input.schema.json";
+const EXPECTED_SCHEMA_FILE = "expected.schema.json";
 
 const ROW_INTERNAL_FIELDS = new Set(["_xact_id", "dataset_id"]);
 
-type Command = "plan" | "apply" | "pull" | "push" | "scaffold";
+type Command = "plan" | "apply" | "pull" | "scaffold";
 
 interface CliOptions {
   command: Command;
@@ -83,12 +92,12 @@ type InsertEvent = Record<string, unknown> & {
 
 const USAGE = `Sync Braintrust datasets ↔ local taxonomy-guided YAML tree.
 
-Local layout (3 path segments + rows inside each file):
-  dataset/Search/Text Search Index Management/Index Deletion.yaml
-  dataset/Search/Text Search Index Management/Index Creation.yaml  (multiple rows + label)
+Local layout (variable folder depth, rows in cases.yaml):
+  dataset/Team - Search/cases.yaml
+  dataset/Team - Search/Text Search Query Construction/Faceted Search/cases.yaml
 
-All case files under dataset/{L1}/ merge into one Braintrust dataset named {L1}.
-Row tags = [L1, L2, L3, L4, …] from path + row label/labels.
+All cases.yaml files under dataset/{dataset}/ merge into one Braintrust dataset named {dataset}.
+Row metadata carries category, subcategory, group, subgroup, name, and description.
 
 Baseline: <dir>/.sync-state.json
 
@@ -97,10 +106,15 @@ Commands:
   plan      Show pending changes. Exit 1 if changes, 2 if blocked (conflicts).
   apply     Apply local changes to remote (skips drift, remote-only, conflicts).
   pull      Overwrite local case files from remote + refresh taxonomy.
-  push      Deprecated: same as 'apply --prune'.
+            With --prune, also delete local rows/files/datasets absent remotely.
+
+Schema sync: plan/apply also diff schemas/{input,expected}.schema.json against
+each dataset's remote metadata.__schemas and push updates (kept in _meta.yaml).
 
 Flags:
-  --prune          Allow deletions (rows/datasets missing locally).
+  --prune          Allow deletions. For apply: rows/datasets missing locally are
+                   removed remotely. For pull: rows/files/datasets missing
+                   remotely are removed locally (true mirror).
   -out FILE        (plan) Write plan JSON to FILE.
   -f, --plan FILE  (apply) Apply a saved plan file instead of re-planning.
 
@@ -110,8 +124,7 @@ Usage:
   scripts/datasets.ts scaffold [-d DIR]
   scripts/datasets.ts plan  [-p PROJECT] [-d DIR] [--prune] [-out plan.json]
   scripts/datasets.ts apply [-p PROJECT] [-d DIR] [--prune] [-f plan.json]
-  scripts/datasets.ts pull  [-p PROJECT] [-d DIR]
-  scripts/datasets.ts push  [-p PROJECT] [-d DIR]   # deprecated`;
+  scripts/datasets.ts pull  [-p PROJECT] [-d DIR] [--prune]`;
 
 function usage(exitCode = 0): never {
   console.log(USAGE);
@@ -137,7 +150,6 @@ function parseArgs(argv: string[]): CliOptions {
     command !== "plan" &&
     command !== "apply" &&
     command !== "pull" &&
-    command !== "push" &&
     command !== "scaffold"
   ) {
     console.error(`Unknown command: ${command}`);
@@ -148,7 +160,7 @@ function parseArgs(argv: string[]): CliOptions {
     command,
     project: DEFAULT_PROJECT,
     dir: DEFAULT_DIR,
-    prune: command === "push",
+    prune: false,
   };
 
   for (let i = 1; i < argv.length; i++) {
@@ -275,7 +287,7 @@ async function loadLocalDatasetRefs(dir: string): Promise<LocalDatasetRef[]> {
   const aggregated = await loadAllLocalDatasets(dir);
   const refs: LocalDatasetRef[] = [];
   for (const dataset of aggregated) {
-    const meta = await readDatasetMeta(dataset.l1Dir);
+    const meta = await readDatasetMeta(dataset.datasetDir);
     refs.push(aggregatedToLocalDatasetRef(dataset, meta));
   }
   return refs;
@@ -307,6 +319,25 @@ async function updateTaxonomyFromLocal(dir: string): Promise<void> {
   await writeTaxonomyFile(dir, merged);
 }
 
+async function loadSchemas(): Promise<DatasetSchemas | null> {
+  try {
+    const [input, expected] = await Promise.all([
+      readFile(path.join(SCHEMAS_DIR, INPUT_SCHEMA_FILE), "utf8"),
+      readFile(path.join(SCHEMAS_DIR, EXPECTED_SCHEMA_FILE), "utf8"),
+    ]);
+    return {
+      input: JSON.parse(input) as unknown,
+      expected: JSON.parse(expected) as unknown,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `Warning: could not load schemas from ${SCHEMAS_DIR}; skipping schema sync. (${message})`,
+    );
+    return null;
+  }
+}
+
 async function buildPlan(
   state: BraintrustState,
   project: string,
@@ -324,9 +355,10 @@ async function buildPlan(
     );
   }
 
-  const [localDatasets, remote] = await Promise.all([
+  const [localDatasets, remote, schemas] = await Promise.all([
     loadLocalDatasetRefs(dir),
     loadRemoteSnapshot(state, project),
+    loadSchemas(),
   ]);
 
   return computePlan({
@@ -337,6 +369,7 @@ async function buildPlan(
     remoteDatasets: remote.remoteDatasets,
     remoteRowsByDataset: remote.remoteRowsByDataset,
     syncState,
+    schemas,
   });
 }
 
@@ -358,11 +391,20 @@ async function deleteRemoteDataset(
   await conn.get(`v1/dataset/${datasetId}`, undefined, { method: "DELETE" });
 }
 
+async function patchDatasetMetadata(
+  conn: ApiConn,
+  datasetId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  await conn.get(`v1/dataset/${datasetId}`, undefined, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ metadata }),
+  });
+}
+
 function rowInsertPayload(row: DatasetRow): InsertEvent {
-  const { _xact_id: _xact, label: _l, labels: _ls, ...rest } = row as DatasetRow & {
-    label?: string;
-    labels?: string[];
-  };
+  const { _xact_id: _xact, tags: _tags, ...rest } = row;
   return {
     ...(rest as Record<string, unknown>),
     _is_merge: false,
@@ -408,6 +450,16 @@ async function applyAction(
       await deleteRemoteDataset(conn, action.dataset_id);
       return;
     }
+    case "update_schemas": {
+      const datasetId =
+        action.dataset_id ?? createdDatasetIds.get(action.dataset);
+      if (!datasetId || !action.metadata) {
+        return;
+      }
+      console.log(`  ~ schemas for '${action.dataset}'`);
+      await patchDatasetMetadata(conn, datasetId, action.metadata);
+      return;
+    }
     case "create_row":
     case "update_row": {
       const datasetId =
@@ -440,6 +492,7 @@ async function applyAction(
 
 const APPLY_ORDER: PlanAction["type"][] = [
   "create_dataset",
+  "update_schemas",
   "create_row",
   "update_row",
   "delete_row",
@@ -489,6 +542,19 @@ async function applyPlan(
   }
 
   const remote = await loadRemoteSnapshot(state, project);
+
+  const schemaUpdated = new Set(
+    plan.actions
+      .filter((action) => action.type === "update_schemas")
+      .map((action) => action.dataset),
+  );
+  for (const dataset of remote.remoteDatasets) {
+    if (schemaUpdated.has(dataset.name)) {
+      await writeDatasetMeta(path.join(dir, dataset.name), dataset);
+      console.log(`  ~ updated _meta.yaml for '${dataset.name}'`);
+    }
+  }
+
   const syncState = buildSyncStateFromRemote({
     project,
     previous: await readSyncState(dir),
@@ -517,6 +583,41 @@ async function runPlan(options: CliOptions, dir: string): Promise<void> {
   throw new ProcessExit(planExitCode(plan));
 }
 
+/**
+ * Assign a stable UUID to every local row missing an `id` and persist it to its
+ * cases.yaml. Run before planning so each row is identified individually (no
+ * "first id-less row" collisions) and the id is inserted/written back.
+ */
+async function assignMissingIds(dir: string): Promise<number> {
+  const files = await findCaseFiles(dir);
+  let assigned = 0;
+  for (const file of files) {
+    let rows;
+    try {
+      rows = await readCaseRowsFile(file);
+    } catch {
+      continue;
+    }
+    let changed = false;
+    const updated = rows.map((row) => {
+      if (row && typeof row === "object" && !row.id) {
+        changed = true;
+        assigned += 1;
+        return { id: randomUUID(), ...row };
+      }
+      return row;
+    });
+    if (changed) {
+      await writeCaseRowsFile(file, updated);
+      console.log(`  id+ ${path.relative(REPO_ROOT, file)}`);
+    }
+  }
+  if (assigned > 0) {
+    console.log(`Assigned ${assigned} new row id(s) before apply.`);
+  }
+  return assigned;
+}
+
 async function runApply(options: CliOptions, dir: string): Promise<void> {
   const state = await connect();
   let plan: Plan;
@@ -529,6 +630,7 @@ async function runApply(options: CliOptions, dir: string): Promise<void> {
     console.log(`Applying saved plan from ${inPath}`);
     console.log(formatPlan(plan));
   } else {
+    await assignMissingIds(dir);
     plan = await buildPlan(state, options.project, dir, options.prune);
     console.log(formatPlan(plan));
   }
@@ -540,6 +642,7 @@ async function pullAll(
   state: BraintrustState,
   project: string,
   dir: string,
+  prune: boolean,
 ): Promise<void> {
   console.log(`Pulling datasets from project '${project}' into '${dir}/'...`);
   await mkdir(dir, { recursive: true });
@@ -557,11 +660,37 @@ async function pullAll(
       (row) => sanitizeRow(row as Record<string, unknown>),
     );
     console.log(`  - ${dataset.name} (${rows.length} row(s))`);
-    const l1Dir = path.join(dir, dataset.name);
-    await writeDatasetMeta(l1Dir, dataset);
-    const written = await writeGroupedRows(rows, dir);
+    const datasetDir = path.join(dir, dataset.name);
+    await writeDatasetMeta(datasetDir, dataset);
+    const written = await writeGroupedRows(rows, dir, dataset.name);
     for (const file of written) {
       console.log(`      -> ${file}`);
+    }
+  }
+
+  if (prune) {
+    const remoteNames = new Set(remote.remoteDatasets.map((d) => d.name));
+    const pruned = await pruneLocalToRemote(
+      dir,
+      remoteNames,
+      remote.remoteRowsByDataset,
+    );
+    if (
+      pruned.removedRows === 0 &&
+      pruned.deletedFiles.length === 0 &&
+      pruned.deletedDatasets.length === 0
+    ) {
+      console.log("Prune: nothing to remove (local already matches remote).");
+    } else {
+      console.log(
+        `Prune: removed ${pruned.removedRows} local row(s), ${pruned.deletedFiles.length} file(s), ${pruned.deletedDatasets.length} dataset(s).`,
+      );
+      for (const dataset of pruned.deletedDatasets) {
+        console.log(`      - dataset ${dataset}`);
+      }
+      for (const file of pruned.deletedFiles) {
+        console.log(`      - ${file}`);
+      }
     }
   }
 
@@ -614,10 +743,6 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const dir = resolveDir(options.dir);
 
-  if (options.command === "push") {
-    console.warn("Warning: 'push' is deprecated; use 'apply --prune' instead.");
-  }
-
   switch (options.command) {
     case "scaffold":
       await runScaffold(dir);
@@ -626,11 +751,10 @@ async function main(): Promise<void> {
       await runPlan(options, dir);
       break;
     case "apply":
-    case "push":
       await runApply(options, dir);
       break;
     case "pull":
-      await pullAll(await connect(), options.project, dir);
+      await pullAll(await connect(), options.project, dir, options.prune);
       break;
   }
 }

@@ -1,5 +1,4 @@
 - id: 86fcd90a-5992-4dfd-b1f7-48f0b84988b9
-  label: Aggregate Search Results
   input:
     db_seed:
       - movies:
@@ -39,9 +38,12 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: aggregate search results for text search query
+    name: Aggregate Search Results
+    description: aggregate search results for text search query
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
   origin: null
-- label: Parallel Sub-Pipelines
+- id: 40bc4cc4-ded1-4f7f-8964-faf2a52c2056
   input:
     db_seed:
       - movies:
@@ -82,8 +84,11 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: parallel sub-pipelines for text search query
-- label: Flatten Arrays
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Parallel Sub-Pipelines
+    description: parallel sub-pipelines for text search query
+- id: 22aca9d4-3217-4733-aeef-6cbf63302037
   input:
     db_seed:
       - movies:
@@ -121,8 +126,11 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: flatten arrays for text search query
-- label: Bucket into Ranges
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Flatten Arrays
+    description: flatten arrays for text search query
+- id: 560be07c-ee14-40a8-a0bd-7fdcc277530f
   input:
     db_seed:
       - movies:
@@ -165,8 +173,11 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: bucket into ranges for text search query
-- label: Shorthand Frequency Count
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Bucket into Ranges
+    description: bucket into ranges for text search query
+- id: eaf7107a-fc10-424c-9dea-b652e1c2622b
   input:
     db_seed:
       - movies:
@@ -204,8 +215,11 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: shorthand frequency count for text search query
-- label: Join with Other Collections
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Shorthand Frequency Count
+    description: shorthand frequency count for text search query
+- id: 6e2c1981-cfe4-439d-94ce-e80459149a43
   input:
     db_seed:
       - movies:
@@ -248,8 +262,11 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: join with other collections for text search query
-- label: Promote Embedded Document
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Join with Other Collections
+    description: join with other collections for text search query
+- id: 2370f91f-528e-4b0d-adf8-80a4057b831f
   input:
     db_seed:
       - movies:
@@ -287,8 +304,11 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: promote embedded document for text search query
-- label: Materialize Results
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Promote Embedded Document
+    description: promote embedded document for text search query
+- id: 0fe57592-b121-45ec-a02e-8ff1a4da9ed9
   input:
     db_seed:
       - movies:
@@ -323,8 +343,11 @@
       - Reduce the score to 0 if the 'family_movies' collection is missing or empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to produce the results.
   metadata:
-    summary: materialize results for text search query
-- label: Random Sample
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Materialize Results
+    description: materialize results for text search query
+- id: 0f9a6381-e3b4-4dd7-b6cf-0f305c3b3f7c
   input:
     db_seed:
       - movies:
@@ -359,4 +382,7 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: random sample for text search query
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
+    name: Random Sample
+    description: random sample for text search query

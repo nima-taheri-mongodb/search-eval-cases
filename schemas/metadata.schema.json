@@ -1,0 +1,37 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "A short, descriptive name for this eval case."
+        },
+        "description": {
+            "type": "string",
+            "description": "A brief summary explaining what this eval case tests."
+        },
+        "category": {
+            "description": "The primary (level 1) taxonomy category for this eval case.",
+            "type": "string"
+        },
+        "subcategory": {
+            "description": "The secondary (level 2) taxonomy subcategory for this eval case.",
+            "type": "string"
+        },
+        "group": {
+            "description": "Level 3 taxonomy group for this eval case.",
+            "type": "string"
+        },
+        "subGroup": {
+            "description": "Level 4 taxonomy subgroup for this eval case.",
+            "type": "string"
+        }
+    },
+    "required": [
+        "name",
+        "description"
+    ],
+    "additionalProperties": false,
+    "description": "Metadata for a single MongoDB agent eval case.",
+    "$id": "https://mongodb-eval-cases/schemas/metadata.schema.json"
+}

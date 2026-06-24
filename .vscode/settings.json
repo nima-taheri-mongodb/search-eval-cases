@@ -2,7 +2,7 @@
   // apply JSON schemas to dataset files
   // https://github.com/remcohaszing/vscode-schemastore
   "yaml.schemas": {
-    "./schemas/case-file.schema.json": "dataset/*/*/*.yaml",
+    "./schemas/case-file.schema.json": "dataset/**/cases.yaml",
     "./schemas/dataset-meta.schema.json": "dataset/*/_meta.yaml"
   },
   // highlight prompt and llm_judge in dataset files (block | scalars and inline single-line values)

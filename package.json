@@ -8,7 +8,6 @@
     "pull": "tsx scripts/datasets.ts pull",
     "plan": "tsx scripts/datasets.ts plan",
     "apply": "tsx scripts/datasets.ts apply",
-    "push": "tsx scripts/datasets.ts push",
     "scaffold": "tsx scripts/datasets.ts scaffold",
     "mcp-server:pull-data": "tsx scripts/mcp-server-pull-data.ts",
     "eval:remote": "tsx scripts/run-remote-eval.ts",

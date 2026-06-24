@@ -7,14 +7,12 @@
             "anyOf": [
                 {
                     "type": "string"
-                },
-                {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             ]
+        },
+        "reference_answer": {
+            "description": "Reference answer for the eval case.",
+            "type": "string"
         },
         "example": {
             "type": "string",

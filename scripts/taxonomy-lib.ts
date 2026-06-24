@@ -4,38 +4,68 @@ import { parse, stringify } from "yaml";
 import type { DatasetRow } from "./datasets-lib.js";
 
 export const TAXONOMY_FILENAME = "taxonomy.yaml";
+export const CASES_FILENAME = "cases.yaml";
+
+export const TAXONOMY_BRANCH_KINDS = [
+  "dataset",
+  "category",
+  "subcategory",
+  "group",
+  "subgroup",
+] as const;
+
+export type TaxonomyBranchKind = (typeof TAXONOMY_BRANCH_KINDS)[number];
+
+export interface TaxonomyPath {
+  category?: string;
+  subcategory?: string;
+  group?: string;
+  subgroup?: string;
+}
+
+export interface CaseMetadata {
+  category?: string;
+  subcategory?: string;
+  group?: string;
+  subgroup?: string;
+  name: string;
+  description: string;
+}
 
 export interface CaseRow extends DatasetRow {
-  label?: string;
-  labels?: string[];
+  metadata?: CaseMetadata | Record<string, unknown> | null;
 }
 
-/** Parsed root of an L3 case YAML file: a sequence of rows (legacy `{ rows: [...] }` still accepted when reading). */
+/** Parsed root of a cases YAML file: a sequence of rows (legacy `{ rows: [...] }` still accepted when reading). */
 export type CaseRowsDocument = CaseRow[];
 
-export interface TagLocation {
-  filePath: string;
-  l1: string;
-  l2: string;
-  l3: string;
-  labelSuffix: string[];
+export interface TaxonomyLeaf {
+  name: string;
+  description: string;
 }
 
-export type TaxonomyNode = TaxonomyBranch | TaxonomyLeafNode;
-
-export interface TaxonomyLeafNode {
-  name: string;
-  summary: string;
+export interface TaxonomyBranchNode {
+  kind: TaxonomyBranchKind;
+  value: string;
+  children: TaxonomyTreeNode[];
 }
 
-export interface TaxonomyBranch {
-  name: string;
-  children: TaxonomyNode[];
+export type TaxonomyTreeNode = TaxonomyBranchNode | TaxonomyLeaf;
+
+export function isTaxonomyLeaf(node: TaxonomyTreeNode): node is TaxonomyLeaf {
+  return "description" in node;
 }
 
 export interface TaxonomyRoot {
+  dataset: string;
+  children: TaxonomyTreeNode[];
+}
+
+export interface TaxonomyLeafRecord {
+  dataset: string;
+  path: TaxonomyPath;
   name: string;
-  children: TaxonomyNode[];
+  description: string;
 }
 
 type RawTaxonomyYaml = {
@@ -43,355 +73,548 @@ type RawTaxonomyYaml = {
 };
 
 type RawTaxonomyEntry = Record<string, RawTaxonomyValue>;
-type RawTaxonomyValue = string | RawTaxonomyEntry[] | Record<string, string | RawTaxonomyEntry[]>;
+type RawTaxonomyValue = string | RawTaxonomyEntry[];
 
-export function suffixFromRow(row: CaseRow): string[] {
-  if (row.labels?.length) {
-    return [...row.labels];
+const FOLDER_LEVEL_KEYS: (keyof TaxonomyPath)[] = [
+  "category",
+  "subcategory",
+  "group",
+  "subgroup",
+];
+
+const BRANCH_KEY_RE =
+  /^(dataset|category|subcategory|group|subgroup)=(.+)$/;
+
+export function parseTaxonomyKey(
+  key: string,
+): { kind: TaxonomyBranchKind; value: string } | { kind: "leaf"; name: string } {
+  const match = BRANCH_KEY_RE.exec(key);
+  if (match) {
+    return {
+      kind: match[1] as TaxonomyBranchKind,
+      value: match[2]!.trim(),
+    };
   }
-  if (row.label) {
-    return [row.label];
-  }
-  return [];
+  return { kind: "leaf", name: key };
 }
 
-export function pathToTagsPrefix(
+export function formatTaxonomyBranchKey(
+  kind: TaxonomyBranchKind,
+  value: string,
+): string {
+  return `${kind}=${value}`;
+}
+
+export function folderSegments(taxonomyPath: TaxonomyPath): string[] {
+  return FOLDER_LEVEL_KEYS.map((key) => taxonomyPath[key]).filter(
+    (segment): segment is string => Boolean(segment),
+  );
+}
+
+export function folderPathForTaxonomyPath(
+  datasetDir: string,
+  dataset: string,
+  taxonomyPath: TaxonomyPath,
+): string {
+  return path.join(datasetDir, dataset, ...folderSegments(taxonomyPath));
+}
+
+export function casesFilePathForRecord(
+  datasetDir: string,
+  record: Pick<TaxonomyLeafRecord, "dataset" | "path">,
+): string {
+  return path.join(
+    folderPathForTaxonomyPath(datasetDir, record.dataset, record.path),
+    CASES_FILENAME,
+  );
+}
+
+export function casesFilePathFromMetadata(
+  datasetDir: string,
+  dataset: string,
+  metadata: CaseMetadata,
+): string {
+  const taxonomyPath: TaxonomyPath = {
+    category: metadata.category,
+    subcategory: metadata.subcategory,
+    group: metadata.group,
+    subgroup: metadata.subgroup,
+  };
+  return path.join(
+    folderPathForTaxonomyPath(datasetDir, dataset, taxonomyPath),
+    CASES_FILENAME,
+  );
+}
+
+export function taxonomyPathFromCasesFile(
   filePath: string,
   datasetDir: string,
-): [string, string, string] {
-  const rel = path.relative(datasetDir, filePath).replace(/\.yaml$/i, "");
+): { dataset: string; path: TaxonomyPath } {
+  const rel = path.relative(datasetDir, filePath);
   const parts = rel.split(path.sep);
-  if (parts.length !== 3) {
+  if (parts[parts.length - 1] !== CASES_FILENAME) {
     throw new Error(
-      `Case file must be dataset/{L1}/{L2}/{L3}.yaml, got: ${rel}`,
+      `Case file must be dataset/{dataset}/.../${CASES_FILENAME}, got: ${rel}`,
     );
   }
-  return [parts[0]!, parts[1]!, parts[2]!];
-}
-
-export function rowTags(
-  prefix: [string, string, string],
-  row: CaseRow,
-): string[] {
-  return [...prefix, ...suffixFromRow(row)];
-}
-
-export function tagsToLocation(tags: string[], datasetDir: string): TagLocation {
-  const normalized = tags;
-  if (normalized.length < 3) {
-    throw new Error(
-      `Row tags need at least 3 levels (L1/L2/L3), got: ${normalized.join(" > ")}`,
-    );
+  if (parts.length < 2) {
+    throw new Error(`Case file path too short: ${rel}`);
   }
-  const [l1, l2, l3, ...labelSuffix] = normalized;
+  const dataset = parts[0]!;
+  const folderParts = parts.slice(1, -1);
+  const taxonomyPath: TaxonomyPath = {};
+  for (let i = 0; i < folderParts.length && i < FOLDER_LEVEL_KEYS.length; i++) {
+    taxonomyPath[FOLDER_LEVEL_KEYS[i]!] = folderParts[i];
+  }
+  return { dataset, path: taxonomyPath };
+}
+
+export function metadataFromTaxonomyPath(
+  taxonomyPath: TaxonomyPath,
+  name: string,
+  description: string,
+): CaseMetadata {
+  const metadata: CaseMetadata = { name, description };
+  if (taxonomyPath.category) {
+    metadata.category = taxonomyPath.category;
+  }
+  if (taxonomyPath.subcategory) {
+    metadata.subcategory = taxonomyPath.subcategory;
+  }
+  if (taxonomyPath.group) {
+    metadata.group = taxonomyPath.group;
+  }
+  if (taxonomyPath.subgroup) {
+    metadata.subgroup = taxonomyPath.subgroup;
+  }
+  return metadata;
+}
+
+export function getCaseMetadata(row: CaseRow): CaseMetadata | null {
+  if (!row.metadata || typeof row.metadata !== "object") {
+    return null;
+  }
+  const raw = row.metadata as Record<string, unknown>;
+  if (typeof raw.name !== "string" || !raw.name.trim()) {
+    return null;
+  }
+  const description =
+    typeof raw.description === "string"
+      ? raw.description
+      : typeof raw.summary === "string"
+        ? raw.summary
+        : "";
   return {
-    filePath: path.join(datasetDir, l1!, l2!, `${l3!}.yaml`),
-    l1: l1!,
-    l2: l2!,
-    l3: l3!,
-    labelSuffix,
+    category: typeof raw.category === "string" ? raw.category : undefined,
+    subcategory:
+      typeof raw.subcategory === "string" ? raw.subcategory : undefined,
+    group: typeof raw.group === "string" ? raw.group : undefined,
+    subgroup: typeof raw.subgroup === "string" ? raw.subgroup : undefined,
+    name: raw.name,
+    description,
   };
 }
 
-export function applyLabelSuffix(row: CaseRow, labelSuffix: string[]): CaseRow {
-  const copy: CaseRow = { ...row };
-  delete copy.label;
-  delete copy.labels;
-  if (labelSuffix.length === 1) {
-    copy.label = labelSuffix[0];
-  } else if (labelSuffix.length > 1) {
-    copy.labels = labelSuffix;
-  }
-  return copy;
-}
-
-export function rowForBraintrust(
-  prefix: [string, string, string],
+export function enrichRowMetadata(
   row: CaseRow,
-): DatasetRow {
-  const { label: _l, labels: _ls, ...rest } = row;
+  taxonomyPath: TaxonomyPath,
+): CaseRow {
+  const existing =
+    row.metadata && typeof row.metadata === "object"
+      ? { ...(row.metadata as Record<string, unknown>) }
+      : {};
+  const metadata = metadataFromTaxonomyPath(
+    {
+      category:
+        (typeof existing.category === "string" ? existing.category : undefined) ??
+        taxonomyPath.category,
+      subcategory:
+        (typeof existing.subcategory === "string"
+          ? existing.subcategory
+          : undefined) ?? taxonomyPath.subcategory,
+      group:
+        (typeof existing.group === "string" ? existing.group : undefined) ??
+        taxonomyPath.group,
+      subgroup:
+        (typeof existing.subgroup === "string" ? existing.subgroup : undefined) ??
+        taxonomyPath.subgroup,
+    },
+    typeof existing.name === "string" ? existing.name : "",
+    typeof existing.description === "string"
+      ? existing.description
+      : typeof existing.summary === "string"
+        ? existing.summary
+        : "",
+  );
+  delete (existing as { summary?: string }).summary;
+  // Emit canonical key order (name, description, category, subcategory, group,
+  // subgroup) first, then preserve any extra metadata keys.
+  const extras: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(existing)) {
+    if (!(key in metadata)) {
+      extras[key] = value;
+    }
+  }
   return {
-    ...rest,
-    tags: rowTags(prefix, row),
+    ...row,
+    metadata: {
+      ...metadata,
+      ...extras,
+    },
   };
 }
 
-function isLeafValue(value: RawTaxonomyValue): value is string {
-  return typeof value === "string";
+export function rowMatchKey(dataset: string, metadata: CaseMetadata): string {
+  return [
+    dataset,
+    metadata.category ?? "",
+    metadata.subcategory ?? "",
+    metadata.group ?? "",
+    metadata.subgroup ?? "",
+    metadata.name,
+  ].join("\0");
 }
 
-function parseRawNodes(entries: RawTaxonomyEntry[]): TaxonomyNode[] {
-  const nodes: TaxonomyNode[] = [];
+export function rowForBraintrust(row: CaseRow): DatasetRow {
+  const { tags: _tags, ...rest } = row as CaseRow & { tags?: string[] };
+  return rest;
+}
+
+function parseRawNodes(
+  entries: RawTaxonomyEntry[],
+  parentKind?: TaxonomyBranchKind,
+): TaxonomyTreeNode[] {
+  const nodes: TaxonomyTreeNode[] = [];
   for (const entry of entries) {
-    for (const [name, value] of Object.entries(entry)) {
-      nodes.push(parseRawNode(name, value));
+    for (const [key, value] of Object.entries(entry)) {
+      nodes.push(parseRawNode(key, value, parentKind));
     }
   }
   return nodes;
 }
 
-function parseRawNode(name: string, value: RawTaxonomyValue): TaxonomyNode {
-  if (isLeafValue(value)) {
-    return { name, summary: value.trim() };
+function parseRawNode(
+  key: string,
+  value: RawTaxonomyValue,
+  parentKind?: TaxonomyBranchKind,
+): TaxonomyTreeNode {
+  const parsed = parseTaxonomyKey(key);
+  if (parsed.kind === "leaf") {
+    if (typeof value !== "string") {
+      throw new Error(`Leaf "${key}" must have a string description`);
+    }
+    return { name: parsed.name, description: value.trim() };
   }
-  if (Array.isArray(value)) {
-    return { name, children: parseRawNodes(value) };
+
+  if (typeof value === "string") {
+    throw new Error(
+      `Branch key "${key}" must have child entries, not a string value`,
+    );
   }
+  if (!Array.isArray(value)) {
+    throw new Error(`Branch key "${key}" must have a YAML sequence of children`);
+  }
+
+  if (parentKind === undefined && parsed.kind !== "dataset") {
+    throw new Error(
+      `Top-level taxonomy entry must be dataset=..., got: ${key}`,
+    );
+  }
+
   return {
-    name,
-    children: parseRawNodes(
-      Object.entries(value).map(([childName, childValue]) => ({
-        [childName]: childValue,
-      })),
-    ),
+    kind: parsed.kind,
+    value: parsed.value,
+    children: parseRawNodes(value, parsed.kind),
   };
-}
-
-export interface TaxonomyNamedNode {
-  name: string;
-  summary?: string;
-  children?: TaxonomyNamedNode[];
-}
-
-function toNamed(node: TaxonomyNode): TaxonomyNamedNode {
-  if ("summary" in node) {
-    return { name: node.name, summary: node.summary };
-  }
-  return {
-    name: node.name,
-    children: node.children.map(toNamed),
-  };
-}
-
-function fromNamed(node: TaxonomyNamedNode): TaxonomyNode {
-  if (node.children?.length) {
-    return {
-      name: node.name,
-      children: node.children.map(fromNamed),
-    };
-  }
-  return { name: node.name, summary: node.summary ?? "" };
 }
 
 export function parseTaxonomyYaml(text: string): TaxonomyRoot[] {
   const raw = parse(text) as RawTaxonomyYaml;
   const entries = raw.taxonomy ?? [];
-  return parseRawNodes(entries).map((node) => {
-    if (!("children" in node)) {
-      throw new Error(`Top-level taxonomy node must be a branch: ${node.name}`);
+  const roots: TaxonomyRoot[] = [];
+
+  for (const entry of entries) {
+    for (const [key, value] of Object.entries(entry)) {
+      const parsed = parseTaxonomyKey(key);
+      if (parsed.kind !== "dataset") {
+        throw new Error(`Top-level taxonomy entry must be dataset=..., got: ${key}`);
+      }
+      if (!Array.isArray(value)) {
+        throw new Error(`dataset=${parsed.value} must have a YAML sequence of children`);
+      }
+      roots.push({
+        dataset: parsed.value,
+        children: parseRawNodes(value, "dataset"),
+      });
     }
-    return { name: node.name, children: node.children };
+  }
+
+  return roots;
+}
+
+function serializeNodes(nodes: TaxonomyTreeNode[]): Record<string, unknown>[] {
+  return nodes.map((node) => {
+    if (isTaxonomyLeaf(node)) {
+      return { [node.name]: node.description };
+    }
+    return {
+      [formatTaxonomyBranchKey(node.kind, node.value)]: serializeNodes(
+        node.children,
+      ),
+    };
   });
 }
 
 export function serializeTaxonomy(roots: TaxonomyRoot[]): string {
   const taxonomy = roots.map((root) => ({
-    [root.name]: serializeNodes(root.children),
+    [formatTaxonomyBranchKey("dataset", root.dataset)]: serializeNodes(
+      root.children,
+    ),
   }));
   const yaml = stringify({ taxonomy }, { lineWidth: 0 });
   return yaml.endsWith("\n") ? yaml : `${yaml}\n`;
 }
 
-function serializeNodes(nodes: TaxonomyNode[]): Record<string, unknown>[] {
-  return nodes.map((node) => {
-    if ("summary" in node) {
-      return { [node.name]: node.summary };
-    }
-    return { [node.name]: serializeNodes(node.children) };
-  });
-}
+export function flattenTaxonomy(roots: TaxonomyRoot[]): TaxonomyLeafRecord[] {
+  const records: TaxonomyLeafRecord[] = [];
 
-function namedToRaw(nodes: TaxonomyNamedNode[]): TaxonomyNode[] {
-  return nodes.map(fromNamed);
-}
-
-export function taxonomyPathKey(tags: string[]): string {
-  return tags.join("\0");
-}
-
-function setLeafSummary(
-  nodes: TaxonomyNamedNode[],
-  tagPath: string[],
-  summary: string,
-): TaxonomyNamedNode[] {
-  if (tagPath.length === 0) {
-    return nodes;
-  }
-  const [head, ...rest] = tagPath;
-  const existing = nodes.find((n) => n.name === head);
-  if (!existing) {
-    if (rest.length === 0) {
-      return [...nodes, { name: head!, summary }];
-    }
-    return [
-      ...nodes,
-      {
-        name: head!,
-        children: setLeafSummary([], rest, summary),
-      },
-    ];
-  }
-  if (rest.length === 0) {
-    return nodes.map((n) =>
-      n.name === head ? { ...n, summary: summary || n.summary } : n,
-    );
-  }
-  return nodes.map((n) =>
-    n.name === head
-      ? {
-          ...n,
-          children: setLeafSummary(n.children ?? [], rest, summary),
-        }
-      : n,
-  );
-}
-
-export function flattenTaxonomy(roots: TaxonomyRoot[]): {
-  tags: string[];
-  summary: string;
-}[] {
-  const paths: { tags: string[]; summary: string }[] = [];
-
-  function walk(nodes: TaxonomyNode[], prefix: string[]): void {
+  function walk(
+    dataset: string,
+    taxonomyPath: TaxonomyPath,
+    nodes: TaxonomyTreeNode[],
+  ): void {
     for (const node of nodes) {
-      const tagPath = [...prefix, node.name];
-      if ("summary" in node) {
-        paths.push({ tags: tagPath, summary: node.summary });
-      } else {
-        walk(node.children, tagPath);
+      if (isTaxonomyLeaf(node)) {
+        records.push({
+          dataset,
+          path: { ...taxonomyPath },
+          name: node.name,
+          description: node.description,
+        });
+        continue;
       }
+
+      const nextPath: TaxonomyPath = { ...taxonomyPath };
+      if (node.kind === "category") {
+        nextPath.category = node.value;
+      } else if (node.kind === "subcategory") {
+        nextPath.subcategory = node.value;
+      } else if (node.kind === "group") {
+        nextPath.group = node.value;
+      } else if (node.kind === "subgroup") {
+        nextPath.subgroup = node.value;
+      } else {
+        throw new Error(`Unexpected branch kind under dataset: ${node.kind}`);
+      }
+      walk(dataset, nextPath, node.children);
     }
   }
 
   for (const root of roots) {
-    walk(root.children, [root.name]);
+    walk(root.dataset, {}, root.children);
   }
-  return paths;
+  return records;
+}
+
+export function taxonomyPathKey(record: TaxonomyLeafRecord): string {
+  return rowMatchKey(
+    record.dataset,
+    metadataFromTaxonomyPath(record.path, record.name, record.description),
+  );
+}
+
+function insertLeafRecord(
+  roots: Map<string, TaxonomyTreeNode[]>,
+  record: TaxonomyLeafRecord,
+): void {
+  const children = roots.get(record.dataset) ?? [];
+  roots.set(record.dataset, insertLeafAtPath(children, record.path, record));
+}
+
+function insertLeafAtPath(
+  nodes: TaxonomyTreeNode[],
+  taxonomyPath: TaxonomyPath,
+  record: TaxonomyLeafRecord,
+): TaxonomyTreeNode[] {
+  const segments: { kind: TaxonomyBranchKind; value: string }[] = [];
+  if (taxonomyPath.category) {
+    segments.push({ kind: "category", value: taxonomyPath.category });
+  }
+  if (taxonomyPath.subcategory) {
+    segments.push({ kind: "subcategory", value: taxonomyPath.subcategory });
+  }
+  if (taxonomyPath.group) {
+    segments.push({ kind: "group", value: taxonomyPath.group });
+  }
+  if (taxonomyPath.subgroup) {
+    segments.push({ kind: "subgroup", value: taxonomyPath.subgroup });
+  }
+
+  if (segments.length === 0) {
+    return insertLeafNode(nodes, record);
+  }
+
+  const [head, ...rest] = segments;
+  const existing = nodes.find(
+    (node): node is TaxonomyBranchNode =>
+      !isTaxonomyLeaf(node) &&
+      node.kind === head!.kind &&
+      node.value === head!.value,
+  );
+  if (!existing) {
+    const childNodes =
+      rest.length === 0
+        ? insertLeafNode([], record)
+        : insertLeafAtPath([], branchPathFromSegments(rest), record);
+    return [
+      ...nodes,
+      {
+        kind: head!.kind,
+        value: head!.value,
+        children: childNodes,
+      },
+    ];
+  }
+
+  const nextPath = branchPathFromSegments(rest);
+  return nodes.map((node) => {
+    if (
+      !isTaxonomyLeaf(node) &&
+      node.kind === head!.kind &&
+      node.value === head!.value
+    ) {
+      return {
+        ...node,
+        children: insertLeafAtPath(node.children, nextPath, record),
+      };
+    }
+    return node;
+  });
+}
+
+function branchPathFromSegments(
+  segments: { kind: TaxonomyBranchKind; value: string }[],
+): TaxonomyPath {
+  const taxonomyPath: TaxonomyPath = {};
+  for (const segment of segments) {
+    if (segment.kind === "category") {
+      taxonomyPath.category = segment.value;
+    } else if (segment.kind === "subcategory") {
+      taxonomyPath.subcategory = segment.value;
+    } else if (segment.kind === "group") {
+      taxonomyPath.group = segment.value;
+    } else if (segment.kind === "subgroup") {
+      taxonomyPath.subgroup = segment.value;
+    }
+  }
+  return taxonomyPath;
+}
+
+function insertLeafNode(
+  nodes: TaxonomyTreeNode[],
+  record: TaxonomyLeafRecord,
+): TaxonomyTreeNode[] {
+  const existing = nodes.find(
+    (node): node is TaxonomyLeaf =>
+      isTaxonomyLeaf(node) && node.name === record.name,
+  );
+  if (existing) {
+    return nodes.map((node) =>
+      isTaxonomyLeaf(node) && node.name === record.name
+        ? { ...node, description: record.description || node.description }
+        : node,
+    );
+  }
+  return [
+    ...nodes,
+    { name: record.name, description: record.description },
+  ];
+}
+
+export function taxonomyFromMetadataPaths(
+  paths: TaxonomyLeafRecord[],
+): TaxonomyRoot[] {
+  const roots = new Map<string, TaxonomyTreeNode[]>();
+  for (const record of paths) {
+    insertLeafRecord(roots, record);
+  }
+  return [...roots.entries()].map(([dataset, children]) => ({
+    dataset,
+    children,
+  }));
 }
 
 export function mergeTaxonomy(
   existing: TaxonomyRoot[],
   discovered: TaxonomyRoot[],
 ): TaxonomyRoot[] {
-  const summaryByPath = new Map<string, string>();
-  for (const { tags, summary } of [
+  const descriptionByPath = new Map<string, string>();
+  for (const record of [
     ...flattenTaxonomy(existing),
     ...flattenTaxonomy(discovered),
   ]) {
-    const key = taxonomyPathKey(tags);
-    const prev = summaryByPath.get(key);
-    summaryByPath.set(key, summary || prev || "");
+    const key = taxonomyPathKey(record);
+    const prev = descriptionByPath.get(key);
+    descriptionByPath.set(key, record.description || prev || "");
   }
-  for (const { tags, summary } of flattenTaxonomy(existing)) {
-    const key = taxonomyPathKey(tags);
-    if (summary) {
-      summaryByPath.set(key, summary);
+  for (const record of flattenTaxonomy(existing)) {
+    const key = taxonomyPathKey(record);
+    if (record.description) {
+      descriptionByPath.set(key, record.description);
     }
   }
-  return taxonomyFromTagPaths(
-    [...summaryByPath.entries()].map(([key, summary]) => ({
-      tags: key.split("\0"),
-      summary,
-    })),
+  return taxonomyFromMetadataPaths(
+    [...descriptionByPath.entries()].map(([key, description]) => {
+      const [dataset, category, subcategory, group, subgroup, name] =
+        key.split("\0");
+      return {
+        dataset: dataset!,
+        path: {
+          category: category || undefined,
+          subcategory: subcategory || undefined,
+          group: group || undefined,
+          subgroup: subgroup || undefined,
+        },
+        name: name!,
+        description,
+      };
+    }),
   );
 }
 
-export function taxonomyFromTagPaths(
-  paths: { tags: string[]; summary?: string }[],
-): TaxonomyRoot[] {
-  const roots = new Map<string, TaxonomyNamedNode>();
-
-  for (const { tags, summary } of paths) {
-    const normalized = tags;
-    if (normalized.length < 3) {
-      continue;
-    }
-    const [l1, ...rest] = normalized;
-    const root = roots.get(l1!) ?? { name: l1!, children: [] };
-    root.children = setLeafSummary(
-      root.children ?? [],
-      rest,
-      summary ?? "",
-    );
-    roots.set(l1!, root);
-  }
-
-  return [...roots.values()].map((root) => ({
-    name: root.name,
-    children: namedToRaw(root.children ?? []),
-  }));
-}
-
-function stubRow(summary: string, label?: string, labels?: string[]): CaseRow {
-  const row: CaseRow = {
+function stubRow(metadata: CaseMetadata): CaseRow {
+  return {
     input: { prompt: "" },
-    metadata: { summary },
+    metadata,
   };
-  if (labels?.length) {
-    row.labels = labels;
-  } else if (label) {
-    row.label = label;
-  }
-  return row;
-}
-
-function rowIsPopulated(row: CaseRow): boolean {
-  const prompt = (row.input as { prompt?: string } | undefined)?.prompt;
-  return Boolean(prompt && prompt.trim().length > 0);
 }
 
 function mergeRowStubs(existing: CaseRow[], stubs: CaseRow[]): CaseRow[] {
   const result = [...existing];
   for (const stub of stubs) {
-    const stubSuffix = suffixFromRow(stub);
-    const found = result.find(
-      (row) => suffixFromRow(row).join("\0") === stubSuffix.join("\0"),
-    );
+    const stubMeta = getCaseMetadata(stub);
+    if (!stubMeta) {
+      continue;
+    }
+    const found = result.find((row) => {
+      const meta = getCaseMetadata(row);
+      return meta && meta.name === stubMeta.name;
+    });
     if (!found) {
       result.push(stub);
-    } else if (!found.metadata && stub.metadata) {
+      continue;
+    }
+    if (!found.metadata && stub.metadata) {
       found.metadata = stub.metadata;
-    } else if (
-      found.metadata &&
-      stub.metadata &&
-      typeof found.metadata === "object" &&
-      typeof stub.metadata === "object" &&
-      !(found.metadata as { summary?: string }).summary &&
-      (stub.metadata as { summary?: string }).summary
-    ) {
-      (found.metadata as { summary?: string }).summary = (
-        stub.metadata as { summary?: string }
-      ).summary;
+    } else if (found.metadata && stub.metadata) {
+      const current = found.metadata as Record<string, unknown>;
+      const incoming = stub.metadata as Record<string, unknown>;
+      if (!current.description && incoming.description) {
+        current.description = incoming.description;
+      }
     }
   }
   return result;
-}
-
-function scaffoldL3File(
-  l1: string,
-  l2: string,
-  l3: string,
-  node: TaxonomyNode,
-): CaseRow[] {
-  if ("summary" in node) {
-    return [stubRow(node.summary)];
-  }
-  return node.children.map((child) => {
-    if ("summary" in child) {
-      return stubRow(child.summary, child.name);
-    }
-    return stubRow("", child.name, collectDeepLabels(child));
-  });
-}
-
-function collectDeepLabels(node: TaxonomyNode): string[] {
-  if ("summary" in node) {
-    return [];
-  }
-  if (node.children.length === 1 && "summary" in node.children[0]!) {
-    return [node.name, node.children[0]!.name];
-  }
-  return [node.name];
 }
 
 export interface ScaffoldResult {
@@ -407,49 +630,50 @@ export async function scaffoldFromTaxonomy(
 ): Promise<ScaffoldResult> {
   const created: string[] = [];
   const updated: string[] = [];
+  const byFile = new Map<string, CaseRow[]>();
 
-  for (const root of roots) {
-    const l1Dir = path.join(datasetDir, root.name);
-    await mkdir(l1Dir, { recursive: true });
+  for (const record of flattenTaxonomy(roots)) {
+    const filePath = casesFilePathForRecord(datasetDir, record);
+    const metadata = metadataFromTaxonomyPath(
+      record.path,
+      record.name,
+      record.description,
+    );
+    const stubs = byFile.get(filePath) ?? [];
+    stubs.push(stubRow(metadata));
+    byFile.set(filePath, stubs);
+  }
 
-    for (const l2Node of root.children) {
-      if ("summary" in l2Node) {
-        continue;
-      }
-      const l2Dir = path.join(l1Dir, l2Node.name);
-      await mkdir(l2Dir, { recursive: true });
+  for (const [filePath, stubs] of byFile) {
+    await mkdir(path.dirname(filePath), { recursive: true });
+    const existing = await readYaml(filePath);
+    const merged = mergeRowStubs(existing ?? [], stubs);
 
-      for (const l3Node of l2Node.children) {
-        const filePath = path.join(l2Dir, `${l3Node.name}.yaml`);
-        const stubs = scaffoldL3File(root.name, l2Node.name, l3Node.name, l3Node);
-        const existing = await readYaml(filePath);
-        const merged = mergeRowStubs(existing ?? [], stubs);
-
-        if (!existing) {
-          created.push(filePath);
-        } else if (merged.length !== existing.length) {
-          updated.push(filePath);
-        }
-
-        await writeYaml(filePath, merged);
-      }
+    if (!existing) {
+      created.push(filePath);
+    } else if (merged.length !== existing.length) {
+      updated.push(filePath);
     }
+
+    await writeYaml(filePath, merged);
   }
 
   return { created, updated };
 }
 
 export function taxonomyFromFilesystem(
-  tagPaths: { tags: string[]; summary?: string }[],
+  records: TaxonomyLeafRecord[],
 ): TaxonomyRoot[] {
-  return taxonomyFromTagPaths(tagPaths);
+  return taxonomyFromMetadataPaths(records);
 }
 
 export function taxonomyFilePath(datasetDir: string): string {
   return path.join(datasetDir, TAXONOMY_FILENAME);
 }
 
-export async function readTaxonomyFile(datasetDir: string): Promise<TaxonomyRoot[]> {
+export async function readTaxonomyFile(
+  datasetDir: string,
+): Promise<TaxonomyRoot[]> {
   try {
     const text = await readFile(taxonomyFilePath(datasetDir), "utf8");
     return parseTaxonomyYaml(text);

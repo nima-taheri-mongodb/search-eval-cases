@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * Run Braintrust remote eval against `bt eval --dev` (default http://localhost:8300).
- * Resolves L3 case YAML via globs, merges rows, POSTs /eval with inline data.
+ * Resolves cases.yaml via globs, merges rows, POSTs /eval with inline data.
  */
 
 import { login, type BraintrustState } from "braintrust";
@@ -19,8 +19,9 @@ import {
   mergeEvalParameters,
   parameterKeysForLog,
   postEvalHttp,
-  compileLabelRegex,
+  compileMetadataRegex,
   resolveCaseFilesFromGlobs,
+  type MetadataRegexFilter,
   type RemoteEvalStartMetadata,
   type RemoteEvalSummary,
 } from "./run-remote-eval-lib.js";
@@ -44,7 +45,7 @@ interface ParsedCli {
   skipTraces: boolean;
   dryRun: boolean;
   paramsJson?: string;
-  labelRegex?: string;
+  metadataRegex?: string;
   globs: string[];
 }
 
@@ -119,8 +120,9 @@ function parseCli(argv: string[]): ParsedCli {
       i++;
       continue;
     }
-    if (!afterSep && a === "--label-regex") {
-      out.labelRegex = argv[++i] ?? die("--label-regex requires a pattern");
+    if (!afterSep && a === "--metadata-regex") {
+      out.metadataRegex =
+        argv[++i] ?? die("--metadata-regex requires key=<regex>");
       i++;
       continue;
     }
@@ -158,7 +160,7 @@ async function main(): Promise<void> {
     die(
       "Usage: pnpm eval:remote [flags] [glob...]\n" +
         "       pnpm eval:remote [flags] -- <glob> [glob...]\n" +
-        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --label-regex PATTERN --output-dir DIR --skip-traces --dry-run",
+        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --metadata-regex key=<regex> --output-dir DIR --skip-traces --dry-run",
     );
   }
 
@@ -174,30 +176,30 @@ async function main(): Promise<void> {
     REPO_ROOT,
   );
 
-  const labelPattern =
-    cli.labelRegex?.trim() ||
-    process.env.LABEL_REGEX?.trim() ||
+  const metadataSpec =
+    cli.metadataRegex?.trim() ||
+    process.env.METADATA_REGEX?.trim() ||
     undefined;
-  let labelRegex: RegExp | undefined;
-  if (labelPattern) {
+  let metadataRegex: MetadataRegexFilter | undefined;
+  if (metadataSpec) {
     try {
-      labelRegex = compileLabelRegex(labelPattern);
+      metadataRegex = compileMetadataRegex(metadataSpec);
     } catch (e) {
       die(e instanceof Error ? e.message : String(e));
     }
-    log(`Label regex: /${labelPattern}/`);
+    log(`Metadata regex: ${metadataRegex.key}=/${metadataRegex.regex.source}/`);
   }
 
   const { rows, sources } = await loadRowsFromCaseFilesDetailed(
     files,
     absDatasetDir,
-    { labelRegex },
+    { metadataRegex },
   );
 
   if (rows.length === 0) {
     die(
-      labelRegex
-        ? "No rows matched the file glob(s) and --label-regex filter"
+      metadataRegex
+        ? "No rows matched the file glob(s) and --metadata-regex filter"
         : "No rows loaded from matched case files",
     );
   }
@@ -218,8 +220,8 @@ async function main(): Promise<void> {
     const idPart =
       src.rowIds.length > 0 ? ` ids=${src.rowIds.join(", ")}` : "";
     const tagPart =
-      src.tagsPreview.length > 0
-        ? ` tags="${src.tagsPreview.join('" | "')}"`
+      src.namesPreview.length > 0
+        ? ` names="${src.namesPreview.join('" | "')}"`
         : "";
     log(`  ${rel} (${src.rowCount} row${src.rowCount === 1 ? "" : "s"})${idPart}${tagPart}`);
   }

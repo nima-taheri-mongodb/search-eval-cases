@@ -85,26 +85,40 @@ function patchExpectedSchema(raw: string): string {
   return JSON.stringify(obj, null, 4) + "\n";
 }
 
+function patchMetadataSchema(raw: string): string {
+  const obj = JSON.parse(raw) as Record<string, unknown>;
+  obj.$id = "https://mongodb-eval-cases/schemas/metadata.schema.json";
+  return JSON.stringify(obj, null, 4) + "\n";
+}
+
+interface GeneratedSchema {
+  file: string;
+  patch: (raw: string) => string;
+}
+
+const GENERATED_SCHEMAS: GeneratedSchema[] = [
+  { file: "input.schema.json", patch: patchInputSchema },
+  { file: "expected.schema.json", patch: patchExpectedSchema },
+  { file: "metadata.schema.json", patch: patchMetadataSchema },
+];
+
 function copyGeneratedSchemas(): void {
-  const inputSrc = path.join(MCP_SCHEMA_DIST, "input.schema.json");
-  const expectedSrc = path.join(MCP_SCHEMA_DIST, "expected.schema.json");
-  if (!existsSync(inputSrc) || !existsSync(expectedSrc)) {
+  const sources = GENERATED_SCHEMAS.map((schema) => ({
+    ...schema,
+    src: path.join(MCP_SCHEMA_DIST, schema.file),
+    out: path.join(SCHEMAS_DIR, schema.file),
+  }));
+  if (sources.some(({ src }) => !existsSync(src))) {
     die(
       `Missing generated schemas under ${MCP_SCHEMA_DIST}.\n` +
-        `Expected input.schema.json and expected.schema.json after generate-schemas.`,
+        `Expected ${GENERATED_SCHEMAS.map((s) => s.file).join(" and ")} after generate-schemas.`,
     );
   }
   mkdirSync(SCHEMAS_DIR, { recursive: true });
-  const inputOut = path.join(SCHEMAS_DIR, "input.schema.json");
-  const expectedOut = path.join(SCHEMAS_DIR, "expected.schema.json");
-  writeFileSync(inputOut, patchInputSchema(readFileSync(inputSrc, "utf8")), "utf8");
-  writeFileSync(
-    expectedOut,
-    patchExpectedSchema(readFileSync(expectedSrc, "utf8")),
-    "utf8",
-  );
-  console.log(`Wrote ${path.relative(REPO_ROOT, inputOut)}`);
-  console.log(`Wrote ${path.relative(REPO_ROOT, expectedOut)}`);
+  for (const { src, out, patch } of sources) {
+    writeFileSync(out, patch(readFileSync(src, "utf8")), "utf8");
+    console.log(`Wrote ${path.relative(REPO_ROOT, out)}`);
+  }
 }
 
 function copyDbSeed(): void {

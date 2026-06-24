@@ -7,7 +7,6 @@ export const ROW_CONTENT_FIELDS = [
   "input",
   "expected",
   "metadata",
-  "tags",
 ] as const;
 
 export interface DatasetRow {
@@ -75,6 +74,7 @@ export type PlanActionType =
   | "noop"
   | "create_dataset"
   | "delete_dataset"
+  | "update_schemas"
   | "create_row"
   | "update_row"
   | "delete_row"
@@ -89,6 +89,42 @@ export interface PlanAction {
   row_id?: string;
   local_file?: string;
   reason?: string;
+  /** Human-readable taxonomy path of the affected row (category/.../name). */
+  label?: string;
+  /** Full dataset metadata to PATCH (used by `update_schemas`). */
+  metadata?: Record<string, unknown>;
+}
+
+/** Canonical `input`/`expected` JSON schemas synced into dataset metadata. */
+export interface DatasetSchemas {
+  input: unknown;
+  expected: unknown;
+}
+
+export const SCHEMAS_METADATA_KEY = "__schemas";
+
+const ROW_TAXONOMY_FIELDS = [
+  "category",
+  "subcategory",
+  "group",
+  "subgroup",
+  "name",
+] as const;
+
+/**
+ * Build a `category / subcategory / group / subgroup / name` label from a row's
+ * metadata so plan output identifies rows by taxonomy instead of bare ids.
+ */
+export function rowTaxonomyLabel(row: DatasetRow | undefined): string | undefined {
+  const metadata = row?.metadata;
+  if (!metadata || typeof metadata !== "object") {
+    return undefined;
+  }
+  const meta = metadata as Record<string, unknown>;
+  const segments = ROW_TAXONOMY_FIELDS.map((key) => meta[key]).filter(
+    (value): value is string => typeof value === "string" && value.trim() !== "",
+  );
+  return segments.length > 0 ? segments.join(" / ") : undefined;
 }
 
 export interface PlanSummary {
@@ -161,6 +197,7 @@ function bumpSummary(summary: PlanSummary, type: PlanActionType): void {
       summary.create += 1;
       break;
     case "update_row":
+    case "update_schemas":
       summary.update += 1;
       break;
     case "delete_dataset":
@@ -316,6 +353,7 @@ export function computeDatasetPlan(params: {
         dataset_id: remote.id,
         local_file: localFile,
         reason: "row has no id",
+        label: rowTaxonomyLabel(row),
       });
     }
   }
@@ -326,6 +364,7 @@ export function computeDatasetPlan(params: {
     const baselineSnap = baseline?.rows[rowId];
     const localDiff = localChanged(localRow, baselineSnap);
     const remoteDiff = remoteChanged(remoteRow, baselineSnap);
+    const label = rowTaxonomyLabel(localRow ?? remoteRow);
 
     if (localRow && remoteRow) {
       if (localDiff && remoteDiff) {
@@ -336,6 +375,7 @@ export function computeDatasetPlan(params: {
           row_id: rowId,
           local_file: localFile,
           reason: "local and remote both changed since last sync",
+          label,
         });
       } else if (localDiff) {
         actions.push({
@@ -344,6 +384,7 @@ export function computeDatasetPlan(params: {
           dataset_id: remote.id,
           row_id: rowId,
           local_file: localFile,
+          label,
         });
       } else if (remoteDiff) {
         actions.push({
@@ -353,6 +394,7 @@ export function computeDatasetPlan(params: {
           row_id: rowId,
           local_file: localFile,
           reason: "remote changed since last sync; run pull to accept",
+          label,
         });
       } else {
         actions.push({
@@ -361,6 +403,7 @@ export function computeDatasetPlan(params: {
           dataset_id: remote.id,
           row_id: rowId,
           local_file: localFile,
+          label,
         });
       }
       continue;
@@ -376,6 +419,7 @@ export function computeDatasetPlan(params: {
             row_id: rowId,
             local_file: localFile,
             reason: "removed locally",
+            label,
           });
         } else {
           actions.push({
@@ -385,6 +429,7 @@ export function computeDatasetPlan(params: {
             row_id: rowId,
             local_file: localFile,
             reason: "row removed locally but existed at last sync (use --prune)",
+            label,
           });
         }
       } else {
@@ -394,6 +439,7 @@ export function computeDatasetPlan(params: {
           dataset_id: remote.id,
           row_id: rowId,
           local_file: localFile,
+          label,
         });
       }
       continue;
@@ -407,6 +453,7 @@ export function computeDatasetPlan(params: {
           dataset_id: remote.id,
           row_id: rowId,
           reason: baselineSnap ? "not in local file" : "remote-only (prune)",
+          label,
         });
       } else if (baselineSnap) {
         actions.push({
@@ -415,6 +462,7 @@ export function computeDatasetPlan(params: {
           dataset_id: remote.id,
           row_id: rowId,
           reason: "remote row not in local (use --prune to delete)",
+          label,
         });
       } else {
         actions.push({
@@ -423,6 +471,7 @@ export function computeDatasetPlan(params: {
           dataset_id: remote.id,
           row_id: rowId,
           reason: "remote-only row (not in baseline)",
+          label,
         });
       }
     }
@@ -437,6 +486,62 @@ export interface LocalDatasetRef {
   data: DatasetFile;
 }
 
+function remoteSchemasMetadata(
+  remote: RemoteDataset | undefined,
+): Record<string, unknown> | undefined {
+  const existing = remote?.metadata?.[SCHEMAS_METADATA_KEY];
+  return existing && typeof existing === "object"
+    ? (existing as Record<string, unknown>)
+    : undefined;
+}
+
+/**
+ * Diff the local `schemas/` content against a dataset's remote
+ * `metadata.__schemas`. Returns an `update_schemas` action when the dataset is
+ * present locally and its `input`/`expected` schemas differ from remote (or the
+ * dataset is being created). Returns `null` when already in sync or skipped.
+ */
+export function computeSchemaAction(params: {
+  name: string;
+  localExists: boolean;
+  remote?: RemoteDataset;
+  schemas: DatasetSchemas | null;
+}): PlanAction | null {
+  const { name, localExists, remote, schemas } = params;
+  if (!schemas || !localExists) {
+    return null;
+  }
+
+  const remoteSchemas = remoteSchemasMetadata(remote);
+  const inSync =
+    !!remote &&
+    !!remoteSchemas &&
+    stableStringify(remoteSchemas.input) === stableStringify(schemas.input) &&
+    stableStringify(remoteSchemas.expected) ===
+      stableStringify(schemas.expected);
+  if (inSync) {
+    return null;
+  }
+
+  const metadata: Record<string, unknown> = {
+    ...(remote?.metadata ?? {}),
+    [SCHEMAS_METADATA_KEY]: {
+      ...(remoteSchemas ?? {}),
+      input: schemas.input,
+      expected: schemas.expected,
+      updated_at: new Date().toISOString(),
+    },
+  };
+
+  return {
+    type: "update_schemas",
+    dataset: name,
+    dataset_id: remote?.id,
+    metadata,
+    reason: remote ? "schemas changed" : "set schemas on new dataset",
+  };
+}
+
 export function computePlan(params: {
   project: string;
   dir: string;
@@ -445,6 +550,7 @@ export function computePlan(params: {
   remoteDatasets: RemoteDataset[];
   remoteRowsByDataset: Map<string, DatasetRow[]>;
   syncState: SyncState | null;
+  schemas?: DatasetSchemas | null;
 }): Plan {
   const {
     project,
@@ -454,6 +560,7 @@ export function computePlan(params: {
     remoteDatasets,
     remoteRowsByDataset,
     syncState,
+    schemas = null,
   } = params;
 
   const localByName = new Map(localDatasets.map((d) => [d.name, d]));
@@ -480,6 +587,15 @@ export function computePlan(params: {
         prune,
       }),
     );
+    const schemaAction = computeSchemaAction({
+      name,
+      localExists: !!local,
+      remote,
+      schemas,
+    });
+    if (schemaAction) {
+      actions.push(schemaAction);
+    }
   }
 
   const summary = emptySummary();
@@ -573,6 +689,7 @@ const ACTION_SYMBOL: Record<PlanActionType, string> = {
   noop: " ",
   create_dataset: "+",
   delete_dataset: "-",
+  update_schemas: "~",
   create_row: "+",
   update_row: "~",
   delete_row: "-",
@@ -615,8 +732,9 @@ export function formatPlan(plan: Plan): string {
       action.row_id != null
         ? `row ${action.row_id}`
         : action.type.replace(/_/g, " ");
+    const label = action.label ? `  ${action.label}` : "";
     const reason = action.reason ? `  (${action.reason})` : "";
-    lines.push(`    ${symbol} ${target}${reason}`);
+    lines.push(`    ${symbol} ${target}${label}${reason}`);
   }
 
   return lines.join("\n");

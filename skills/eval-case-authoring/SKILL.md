@@ -18,10 +18,10 @@ description: >-
 
 ## Scaffolding workflow
 
-`pnpm scaffold` creates L3 YAML under `dataset/` with one row per taxonomy leaf:
-`label`, `metadata.summary`, `input.prompt: ""`.
+`pnpm scaffold` creates `cases.yaml` stubs under `dataset/` with one row per taxonomy leaf:
+`metadata.name`, `metadata.description`, `input.prompt: ""`.
 
-Fill stubs **per L3 file** using a **complete reference row** in that file (or an
+Fill stubs **per cases.yaml file** using a **complete reference row** in that file (or an
 adjacent filled file) as the template. Copy `input` / `expected` / `metadata`
 shape; adapt prompt, `db_seed`, and judge per leaf.
 
@@ -58,8 +58,7 @@ shape; adapt prompt, `db_seed`, and judge per leaf.
 **Query construction** (Faceted Search, Post-Search Aggregation):
 
 ```yaml
-- label: <taxonomy leaf>
-  input:
+- input:
     db_seed:
       - movies:
           indexes: [{ name: default, type: search, definition: { … } }]
@@ -78,14 +77,16 @@ shape; adapt prompt, `db_seed`, and judge per leaf.
       - Reduce the score to 0 if `$response` is empty.
       - Multiply the score by 0.2x if no search index was used in `$conversation` …
   metadata:
-    summary: <from taxonomy>
+    category: <from folder path>
+    subcategory: <from folder path>
+    name: <taxonomy leaf>
+    description: <from taxonomy>
 ```
 
 **Index creation**:
 
 ```yaml
-- label: <taxonomy leaf>
-  input:
+- input:
     db_seed:
       - movies
     prompt: |
@@ -101,7 +102,10 @@ shape; adapt prompt, `db_seed`, and judge per leaf.
       - Score 0.5 when …
       - Score 0 when …
   metadata:
-    summary: <from taxonomy>
+    category: <from folder path>
+    subcategory: <from folder path>
+    name: <taxonomy leaf>
+    description: <from taxonomy>
 ```
 
 Use bullet points under `### Scoring`. Omit `id` / `origin` on new rows unless

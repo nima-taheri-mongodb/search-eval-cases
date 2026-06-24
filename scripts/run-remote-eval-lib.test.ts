@@ -8,41 +8,50 @@ import {
   buildRemoteEvalRequest,
   buildExperimentUrl,
   buildTraceDump,
-  compileLabelRegex,
+  compileMetadataRegex,
   consumeRemoteEvalSse,
   formatScoreLine,
   groupRecordsByTrace,
   inferProjectIdFromMeta,
-  isL3CaseFile,
+  isCasesFileForGlob,
   isRootSpan,
   loadRowsFromCaseFiles,
   loadRowsFromCaseFilesDetailed,
   mergeEvalParameters,
   parseSseEvents,
   resolveCaseFilesFromGlobs,
-  rowMatchesLabelRegex,
+  rowMatchesMetadataRegex,
   sanitizePathSegment,
   traceOutputFilename,
 } from "./run-remote-eval-lib.ts";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-describe("isL3CaseFile", () => {
-  it("accepts L3 yaml under dataset root", () => {
+describe("isCasesFileForGlob", () => {
+  it("accepts cases.yaml under dataset root", () => {
     const ds = path.join(REPO_ROOT, "dataset");
-    const f = path.join(ds, "Search", "L2", "L3.yaml");
-    assert.equal(isL3CaseFile(f, ds), true);
+    const f = path.join(ds, "Team - Search", "Faceted Search", "cases.yaml");
+    assert.equal(isCasesFileForGlob(f, ds), true);
   });
 
   it("rejects _meta and taxonomy", () => {
     const ds = path.join(REPO_ROOT, "dataset");
-    assert.equal(isL3CaseFile(path.join(ds, "Search", "_meta.yaml"), ds), false);
-    assert.equal(isL3CaseFile(path.join(ds, "taxonomy.yaml"), ds), false);
+    assert.equal(
+      isCasesFileForGlob(path.join(ds, "Team - Search", "_meta.yaml"), ds),
+      false,
+    );
+    assert.equal(
+      isCasesFileForGlob(path.join(ds, "taxonomy.yaml"), ds),
+      false,
+    );
   });
 
-  it("rejects wrong depth", () => {
+  it("rejects non-cases yaml", () => {
     const ds = path.join(REPO_ROOT, "dataset");
-    assert.equal(isL3CaseFile(path.join(ds, "Search.yaml"), ds), false);
+    assert.equal(
+      isCasesFileForGlob(path.join(ds, "Team - Search", "foo.yaml"), ds),
+      false,
+    );
   });
 });
 
@@ -50,13 +59,13 @@ describe("resolveCaseFilesFromGlobs", () => {
   it("resolves patterns and dedupes", async () => {
     const a = await resolveCaseFilesFromGlobs(
       [
-        "dataset/Team - Search/Category - Text Search Index Management/*.yaml",
-        "dataset/Team - Search/Category - Text Search Index Management/Index Creation.yaml",
+        "dataset/Search/Text Search Index Management/**/cases.yaml",
+        "dataset/Search/Text Search Index Management/Index Creation/cases.yaml",
       ],
       "dataset",
       REPO_ROOT,
     );
-    assert.ok(a.length >= 2);
+    assert.ok(a.length >= 1);
     const set = new Set(a);
     assert.equal(set.size, a.length);
   });
@@ -65,11 +74,11 @@ describe("resolveCaseFilesFromGlobs", () => {
     await assert.rejects(
       () =>
         resolveCaseFilesFromGlobs(
-          ["dataset/__no_such_bucket__/**/*.yaml"],
+          ["dataset/__no_such_bucket__/**/cases.yaml"],
           "dataset",
           REPO_ROOT,
         ),
-      /No L3 case files matched/,
+      /No cases.yaml files matched/,
     );
   });
 
@@ -81,66 +90,113 @@ describe("resolveCaseFilesFromGlobs", () => {
   });
 });
 
-describe("rowMatchesLabelRegex", () => {
-  it("matches row label and joined labels", () => {
+describe("rowMatchesMetadataRegex", () => {
+  it("matches the named metadata key", () => {
     assert.equal(
-      rowMatchesLabelRegex({ label: "Number Facets" }, /Facets/),
+      rowMatchesMetadataRegex(
+        { metadata: { name: "Number Facets", description: "x" }, input: {} },
+        { key: "name", regex: /Facets/ },
+      ),
       true,
     );
     assert.equal(
-      rowMatchesLabelRegex({ labels: ["A", "B"] }, /^A > B$/),
-      true,
-    );
-    assert.equal(
-      rowMatchesLabelRegex({ label: "String Facets" }, /^Number/),
+      rowMatchesMetadataRegex(
+        { metadata: { name: "String Facets", description: "x" }, input: {} },
+        { key: "name", regex: /^Number/ },
+      ),
       false,
     );
   });
 
-  it("compileLabelRegex throws on invalid pattern", () => {
-    assert.throws(() => compileLabelRegex("("), /Invalid label regex/);
+  it("matches arbitrary metadata keys", () => {
+    assert.equal(
+      rowMatchesMetadataRegex(
+        {
+          metadata: { name: "X", category: "Vector Search", description: "" },
+          input: {},
+        },
+        { key: "category", regex: /^Vector/ },
+      ),
+      true,
+    );
+  });
+
+  it("does not match when the key is missing or non-string", () => {
+    assert.equal(
+      rowMatchesMetadataRegex(
+        { metadata: { name: "X", description: "" }, input: {} },
+        { key: "category", regex: /Vector/ },
+      ),
+      false,
+    );
+  });
+
+  it("compileMetadataRegex parses key=<regex>", () => {
+    const filter = compileMetadataRegex("category=^Vector.*Search$");
+    assert.equal(filter.key, "category");
+    assert.equal(filter.regex.source, "^Vector.*Search$");
+  });
+
+  it("compileMetadataRegex keeps '=' inside the pattern", () => {
+    const filter = compileMetadataRegex("name=a=b");
+    assert.equal(filter.key, "name");
+    assert.equal(filter.regex.source, "a=b");
+  });
+
+  it("compileMetadataRegex throws without a key", () => {
+    assert.throws(() => compileMetadataRegex("=foo"), /key=<regex>/);
+    assert.throws(() => compileMetadataRegex("noequals"), /key=<regex>/);
+  });
+
+  it("compileMetadataRegex throws on invalid pattern", () => {
+    assert.throws(() => compileMetadataRegex("name=("), /Invalid metadata regex/);
   });
 });
 
 describe("loadRowsFromCaseFiles", () => {
-  it("merges rows from multiple files with tags", async () => {
+  it("merges rows from multiple files with metadata", async () => {
     const ds = path.join(REPO_ROOT, "dataset");
     const files = [
       path.join(
         ds,
-        "Team - Search",
-        "Category - Text Search Index Management",
-        "Index Creation.yaml",
+        "Search",
+        "Text Search Index Management",
+        "Index Creation",
+        "cases.yaml",
       ),
       path.join(
         ds,
-        "Team - Search",
-        "Category - Text Search Index Management",
-        "Index Lifecycle.yaml",
+        "Search",
+        "Text Search Index Management",
+        "Index Lifecycle",
+        "cases.yaml",
       ),
     ];
     const rows = await loadRowsFromCaseFiles(files, ds);
     assert.ok(rows.length >= 2);
-    assert.ok(Array.isArray(rows[0]?.tags));
-    assert.ok((rows[0]?.tags ?? []).some((t) => t.includes("Team - Search")));
+    assert.ok(
+      (rows[0]?.metadata as { name?: string } | undefined)?.name,
+    );
   });
 
-  it("filters rows by label regex", async () => {
+  it("filters rows by name regex", async () => {
     const ds = path.join(REPO_ROOT, "dataset");
     const file = path.join(
       ds,
-      "Team - Search",
-      "Category - Text Search Query Construction",
-      "Faceted Search.yaml",
+      "Search",
+      "Text Search Query Construction",
+      "Faceted Search",
+      "cases.yaml",
     );
     const { rows, sources } = await loadRowsFromCaseFilesDetailed([file], ds, {
-      labelRegex: /^Number Facets$/,
+      metadataRegex: { key: "name", regex: /^Number Facets$/ },
     });
     assert.equal(rows.length, 1);
     assert.equal(sources.length, 1);
     assert.equal(sources[0]?.rowCount, 1);
-    assert.ok(
-      (rows[0]?.tags ?? []).some((t) => t.endsWith("Number Facets")),
+    assert.equal(
+      (rows[0]?.metadata as { name?: string }).name,
+      "Number Facets",
     );
   });
 });

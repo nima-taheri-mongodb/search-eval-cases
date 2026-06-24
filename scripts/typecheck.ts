@@ -19,7 +19,7 @@ export const SCHEMAS_DIR = path.join(REPO_ROOT, "schemas");
 /** Mirrors `.vscode/settings.json` `yaml.schemas` globs (repo-relative, forward slashes). */
 export const YAML_SCHEMA_RULES = [
   {
-    glob: "dataset/*/*/*.yaml",
+    glob: "dataset/**/cases.yaml",
     schemaFile: "case-file.schema.json",
     schemaId: "https://mongodb-eval-cases/schemas/case-file.schema.json",
   },
@@ -58,9 +58,12 @@ export interface YamlValidationResult {
   issues: YamlValidationIssue[];
 }
 
-/** Convert a simple glob (segment-wise `*`) to a regex. */
+/** Convert a simple glob (segment-wise `*` and `**`) to a regex. */
 export function globToRegExp(globPattern: string): RegExp {
   const segmentToRegExp = (segment: string): string => {
+    if (segment === "**") {
+      return ".*";
+    }
     let out = "";
     for (const ch of segment) {
       if (ch === "*") {

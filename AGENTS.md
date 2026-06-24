@@ -37,7 +37,7 @@ skills/
   mflix-search-queries/
     SKILL.md                        # dataset, verified terms, selectivity
     reference.md                    # $search / $vectorSearch / $rankFusion pipelines
-dataset/                            # eval case YAML (taxonomy L1/L2/L3)
+dataset/                            # eval case YAML (taxonomy → cases.yaml)
 dbseed/                             # movies + synonyms JSON
 DEVELOPER.md                        # repo layout, pnpm scripts, remote eval setup
 AGENTS.md                           # this index

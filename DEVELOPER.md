@@ -19,19 +19,16 @@ Taxonomy-guided tree of evaluation cases:
 
 ```
 dataset/
-  taxonomy.yaml                          # folder scaffold + leaf summaries
-  Search/_meta.yaml                      # Braintrust dataset envelope (id, project_id, …)
-  Search/Text Search Index Management/
-    Index Creation.yaml                  # one or more rows (YAML array)
-    Index Deletion.yaml
+  taxonomy.yaml                          # typed taxonomy (dataset=, category=, …, name: description)
+  Team - Search/_meta.yaml               # Braintrust dataset envelope (id, project_id, …)
+  Team - Search/Text Search Query Construction/Faceted Search/cases.yaml
 ```
 
-- **L1** (`Search/`) → one Braintrust dataset named `Search`
-- **L2** → category folder
-- **L3** → case file (`.yaml` root is a row array, or legacy `{ rows: [...] }`)
-- **L4+** → `label` / `labels` on a row → extra tag segments
+- **dataset** (`Team - Search/`) → one Braintrust dataset; folder name = dataset name
+- **category** / **subcategory** / **group** / **subgroup** → optional nested folders (any may be skipped)
+- **cases.yaml** → row array at the deepest folder for that taxonomy path
 
-Row **tags** = `[L1, L2, L3, L4, …]` from path + label. Tags drive file placement on pull and Braintrust grouping on push.
+Row **metadata** carries `category`, `subcategory`, `group`, `subgroup`, `name`, and `description` (dataset is implicit from the folder path). Braintrust sync uses metadata only — no path-based `tags` array.
 
 Each row has:
 
@@ -43,6 +40,8 @@ Judge criteria may reference `$conversation` and `$result` (resolved by the eval
 
 **Baseline:** `dataset/.sync-state.json` — last-synced row hashes for `plan` / `apply`.
 
+**Migration note:** Rows synced before this taxonomy refactor used path-based `tags` on Braintrust. Re-run `pnpm apply` after migrating local `cases.yaml` files so remote rows use metadata-only identity.
+
 ### 🌱 `dbseed/`
 
 JSON seed files referenced by `input.db_seed`. Refresh from mongodb-mcp-server via `pnpm mcp-server:pull-data`.
@@ -51,8 +50,8 @@ JSON seed files referenced by `input.db_seed`. Refresh from mongodb-mcp-server v
 
 | File | Validates |
 |------|-----------|
-| `case-file.schema.json` | `dataset/{L1}/{L2}/{L3}.yaml` |
-| `dataset-meta.schema.json` | `dataset/{L1}/_meta.yaml` |
+| `case-file.schema.json` | `dataset/**/cases.yaml` |
+| `dataset-meta.schema.json` | `dataset/*/_meta.yaml` |
 | `input.schema.json` | row `input` (generated from MCP server types) |
 | `expected.schema.json` | row `expected` (generated from MCP server types) |
 
@@ -67,24 +66,23 @@ Run with `pnpm <script>`. Most Braintrust commands need `BRAINTRUST_API_KEY`.
 | Script | Command | What it does |
 |--------|---------|--------------|
 | **`scaffold`** | `tsx scripts/datasets.ts scaffold` | 🏗️ Build `dataset/{L1}/{L2}/` folders + empty row stubs from `taxonomy.yaml` |
-| **`plan`** | `tsx scripts/datasets.ts plan` | 🔍 Diff local YAML vs Braintrust using `.sync-state.json`. Exit **1** if changes pending, **2** if blocked (conflicts) |
-| **`apply`** | `tsx scripts/datasets.ts apply` | ⬆️ Push local changes to Braintrust (creates/updates rows; skips drift, conflicts, remote-only unless `--prune`) |
+| **`plan`** | `tsx scripts/datasets.ts plan` | 🔍 Diff local YAML vs Braintrust using `.sync-state.json` (+ `schemas/{input,expected}.schema.json` vs each dataset's `metadata.__schemas`). Exit **1** if changes pending, **2** if blocked (conflicts) |
+| **`apply`** | `tsx scripts/datasets.ts apply` | ⬆️ Push local changes to Braintrust (creates/updates rows + syncs `metadata.__schemas` from `schemas/`; skips drift, conflicts, remote-only unless `--prune`) |
 | **`pull`** | `tsx scripts/datasets.ts pull` | ⬇️ Overwrite local case files from remote + refresh `_meta.yaml`, `.sync-state.json`, and `taxonomy.yaml` |
-| **`push`** | `tsx scripts/datasets.ts push` | ⚠️ Deprecated alias for `apply --prune` (allows deleting remote rows/datasets missing locally) |
-| **`eval:remote`** | `tsx scripts/run-remote-eval.ts` | 🧪 Run selected L3 YAML rows against the MCP server’s Braintrust dev eval server (inline data, no dataset sync). See [Remote eval](#-remote-eval) |
+| **`eval:remote`** | `tsx scripts/run-remote-eval.ts` | 🧪 Run selected `cases.yaml` rows against the MCP server’s Braintrust dev eval server (inline data, no dataset sync). See [Remote eval](#-remote-eval) |
 | **`typecheck`** | `tsx scripts/typecheck.ts` | ✅ Validate `dataset/**/*.yaml` against JSON Schema |
 | **`mcp-server:pull-data`** | `tsx scripts/mcp-server-pull-data.ts` | 🔄 Copy `dbseed/` + regenerate `schemas/input.schema.json` & `expected.schema.json` from **mongodb-mcp-server** |
 | **`test`** | `tsx --test scripts/*.test.ts` | 🧪 Unit tests for sync, taxonomy, remote eval, typecheck |
 
 ### Dataset sync flags
 
-Shared by `plan`, `apply`, `pull`, `push`, `scaffold`:
+Shared by `plan`, `apply`, `pull`, `scaffold`:
 
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `-p` / `--project` | `mongodb-mcp-server-evals` | Braintrust project name |
 | `-d` / `--dir` | `dataset` | Local dataset root |
-| `--prune` | off (`push` enables it) | Allow deleting remote rows/datasets absent locally |
+| `--prune` | off | Allow deleting remote rows/datasets absent locally |
 | `-out FILE` | — | (`plan`) Write plan JSON |
 | `-f` / `--plan FILE` | — | (`apply`) Apply a saved plan instead of re-planning |
 
@@ -126,7 +124,7 @@ The eval task runs in **mongodb-mcp-server**. This repo submits case rows to its
    pnpm eval:remote "dataset/Search/**/Index*.yaml"
    ```
 
-Resolves globs → L3 case files → merges rows → `GET /list` + streaming `POST /eval` with **inline** row data. Prints the experiment URL early; fetches full traces afterward into `output/<experiment-name>/` (one JSON per row + `_manifest.json`).
+Resolves globs → `cases.yaml` files → merges rows → `GET /list` + streaming `POST /eval` with **inline** row data. Prints the experiment URL early; fetches full traces afterward into `output/<experiment-name>/` (one JSON per row + `_manifest.json`).
 
 | Flag / env | Default | Meaning |
 |------------|---------|---------|
@@ -136,7 +134,7 @@ Resolves globs → L3 case files → merges rows → `GET /list` + streaming `PO
 | `--experiment` | timestamped `remote-eval_…` | Experiment name |
 | `--project-id` | from `dataset/*/\_meta.yaml` if unambiguous | Braintrust project id for the run |
 | `--params` / `BT_EVAL_PARAMS_JSON` | — | Task params (`connectionString`, `model`, …) |
-| `--label-regex` / `LABEL_REGEX` | — | Only run rows whose `label` / `labels` match this regex |
+| `--metadata-regex` / `METADATA_REGEX` | — | Only run rows whose `metadata[key]` matches the regex; format `key=<regex>` (e.g. `name=Facets`, `category=^Vector`) |
 | `--output-dir` | `output` | Trace dump directory |
 | `--skip-traces` | off | Skip post-run trace fetch |
 | `--dry-run` | off | List matched files/rows only |

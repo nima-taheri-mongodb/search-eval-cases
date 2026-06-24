@@ -1,5 +1,4 @@
 - id: 3c264f64-dc66-410e-aa7b-4b0722189ff3
-  label: Number Facets
   input:
     db_seed:
       - movies:
@@ -54,9 +53,12 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: number facets for text search query
+    name: Number Facets
+    description: number facets for text search query
+    category: Text Search Query Construction
+    subcategory: Faceted Search
   origin: null
-- label: String Facets
+- id: c895852c-4737-407a-b430-f012f156d758
   input:
     db_seed:
       - movies:
@@ -106,8 +108,11 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: string facets for text search query
-- label: Date Facets
+    category: Text Search Query Construction
+    subcategory: Faceted Search
+    name: String Facets
+    description: string facets for text search query
+- id: 352d00d5-5581-46bc-aa81-1a8582ef04e0
   input:
     db_seed:
       - movies:
@@ -167,4 +172,7 @@
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
   metadata:
-    summary: date facets for text search query
+    category: Text Search Query Construction
+    subcategory: Faceted Search
+    name: Date Facets
+    description: date facets for text search query

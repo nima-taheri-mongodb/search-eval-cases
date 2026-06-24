@@ -1,5 +1,4 @@
 - id: e8912167-2b98-4e76-b670-2391be16f264
-  label: Index Deletion
   input:
     db_seed:
       - movies:
@@ -12,9 +11,12 @@
     prompt: |
       Remove 'movies_fts_index' search index
   expected:
-    example: |
+    reference_answer: |
       dropSearchIndex("movies_fts_index")
     llm_judge: No search index on the 'movies' collection should exist
   metadata:
-    summary: index deletion for text search index creation
+    name: Index Deletion
+    description: index deletion for text search index creation
+    category: Text Search Index Management
+    subcategory: Index Lifecycle
   origin: null
