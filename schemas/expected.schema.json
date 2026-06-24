@@ -3,7 +3,7 @@
     "type": "object",
     "properties": {
         "llm_judge": {
-            "description": "Grading criteria (one string or several) the LLM judge checks the output against.",
+            "description": "Provide a prompt for the LLM judge to evaluate and make assertions about:\n- the state of the database after the assistant completes the prompt. The judge may use any available read-only MCP tools to check and validate these assertions.\n- Use $response to retrieve the assistant’s response for this eval case.\n- Use $conversation to access the full conversation history including tool calls and tool results for this eval case.\n- Use $reference_answer to obtain the reference answer for this eval case as specified in \"expected.reference_answer\" field.",
             "anyOf": [
                 {
                     "type": "string"
@@ -11,7 +11,7 @@
             ]
         },
         "reference_answer": {
-            "description": "Reference answer for the eval case.",
+            "description": "The reference answer for the eval case.\nThis helps human reviewers understand the expected answer, and can also be used by the LLM judge by referencing $reference_answer in the LLM judge prompt.",
             "type": "string"
         },
         "example": {

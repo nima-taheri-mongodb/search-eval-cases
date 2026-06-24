@@ -32,6 +32,31 @@
           }
         }
       ]
+    },
+    "(?:^|\\n)[ \\t]+reference_answer:(?:\\s*\\|[-+]?\\s*\\n(?:(?:[ \\t]{6,}.*)?\\n)*|\\s+(?!\\|)[^\\n]+)": {
+      "regexFlags": "g",
+      "filterFileRegex": ".*\\.(yaml|yml)",
+      "decorations": [
+        {
+          "color": "rgb(218, 157, 70)",
+          "before": {
+            // "contentText": "👩‍⚖️ "
+          }
+        }
+      ]
+    },
+    "\\$(reference_answer|response|conversation)": {
+      "regexFlags": "g",
+      "filterFileRegex": ".*\\.(yaml|yml)",
+      "decorations": [
+        {
+          "border": "1px solid rgb(218, 157, 70, 0.25)",
+          "fontStyle": "bold",
+          "before": {
+            // "contentText": "👩‍⚖️ "
+          }
+        }
+      ]
     }
   },
   "highlight.enabled": true

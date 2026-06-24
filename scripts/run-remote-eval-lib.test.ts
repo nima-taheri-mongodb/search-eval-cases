@@ -20,6 +20,7 @@ import {
   mergeEvalParameters,
   parseSseEvents,
   resolveCaseFilesFromGlobs,
+  rowMatchesIdFilter,
   rowMatchesMetadataRegex,
   sanitizePathSegment,
   traceOutputFilename,
@@ -198,6 +199,80 @@ describe("loadRowsFromCaseFiles", () => {
       (rows[0]?.metadata as { name?: string }).name,
       "Number Facets",
     );
+  });
+
+  it("filters rows by row id set (and combines with metadata regex)", async () => {
+    const ds = await mkdtemp(path.join(tmpdir(), "eval-rowid-"));
+    try {
+      const file = path.join(ds, "Search", "Cat", "cases.yaml");
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(
+        file,
+        [
+          "- id: keep-1",
+          "  input:",
+          "    prompt: a",
+          "  metadata:",
+          "    category: Cat",
+          "    name: Alpha",
+          "    description: d",
+          "- id: keep-2",
+          "  input:",
+          "    prompt: b",
+          "  metadata:",
+          "    category: Cat",
+          "    name: Beta",
+          "    description: d",
+          "- id: skip-3",
+          "  input:",
+          "    prompt: c",
+          "  metadata:",
+          "    category: Cat",
+          "    name: Gamma",
+          "    description: d",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const byId = await loadRowsFromCaseFilesDetailed([file], ds, {
+        rowIds: new Set(["keep-1", "keep-2"]),
+      });
+      assert.deepEqual(
+        byId.rows.map((r) => r.id).sort(),
+        ["keep-1", "keep-2"],
+      );
+      assert.deepEqual(byId.sources[0]?.rowIds.sort(), ["keep-1", "keep-2"]);
+
+      const combined = await loadRowsFromCaseFilesDetailed([file], ds, {
+        rowIds: new Set(["keep-1", "keep-2"]),
+        metadataRegex: { key: "name", regex: /^Alpha$/ },
+      });
+      assert.deepEqual(
+        combined.rows.map((r) => r.id),
+        ["keep-1"],
+      );
+
+      const emptySet = await loadRowsFromCaseFilesDetailed([file], ds, {
+        rowIds: new Set<string>(),
+      });
+      assert.equal(emptySet.rows.length, 3);
+    } finally {
+      await rm(ds, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("rowMatchesIdFilter", () => {
+  const ids = new Set(["a", "b"]);
+  it("matches when id is in the set", () => {
+    assert.equal(rowMatchesIdFilter({ id: "a" } as never, ids), true);
+  });
+  it("does not match a missing id", () => {
+    assert.equal(rowMatchesIdFilter({ id: "z" } as never, ids), false);
+  });
+  it("does not match a row without an id", () => {
+    assert.equal(rowMatchesIdFilter({} as never, ids), false);
   });
 });
 

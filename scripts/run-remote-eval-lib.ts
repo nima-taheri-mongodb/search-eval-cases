@@ -87,6 +87,15 @@ export interface MetadataRegexFilter {
 export interface LoadRowsOptions {
   /** When set, only rows whose `metadata[key]` matches this regex are included. */
   metadataRegex?: MetadataRegexFilter;
+  /** When set and non-empty, only rows whose `id` is in this set are included. */
+  rowIds?: ReadonlySet<string>;
+}
+
+export function rowMatchesIdFilter(
+  row: CaseRow,
+  rowIds: ReadonlySet<string>,
+): boolean {
+  return typeof row.id === "string" && rowIds.has(row.id);
 }
 
 export function rowMetadataText(row: CaseRow, key: string): string {
@@ -148,6 +157,8 @@ export async function loadRowsFromCaseFilesDetailed(
 ): Promise<LoadedCaseRows> {
   const absDatasetDir = path.resolve(datasetDir);
   const metadataRegex = options?.metadataRegex;
+  const rowIdFilter =
+    options?.rowIds && options.rowIds.size > 0 ? options.rowIds : undefined;
   const rows: DatasetRow[] = [];
   const sources: CaseFileLoadSource[] = [];
   for (const file of files) {
@@ -162,6 +173,9 @@ export async function loadRowsFromCaseFilesDetailed(
     for (const row of fileRows) {
       const enriched = enrichRowMetadata(row, taxonomyPath);
       if (metadataRegex && !rowMatchesMetadataRegex(enriched, metadataRegex)) {
+        continue;
+      }
+      if (rowIdFilter && !rowMatchesIdFilter(enriched, rowIdFilter)) {
         continue;
       }
       const btRow = rowForBraintrust(enriched);

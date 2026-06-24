@@ -16,11 +16,7 @@
     prompt: |
       On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and bucket them by decade of their 'release_year'.
   expected:
-    llm_judge: |
-      ### Success criterion
-      For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $searchMeta: {
@@ -47,6 +43,9 @@
           }
         }
       ])
+    llm_judge: |
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query $reference_answer.
 
       ### Scoring
       - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.
@@ -76,11 +75,7 @@
     prompt: |
       On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot and return the count per 'genres' value.
   expected:
-    llm_judge: |
-      ### Success criterion
-      For text search matches in the 'movies' collection, $response reports the same number of movies per genre as the reference facet query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $searchMeta: {
@@ -102,6 +97,9 @@
           }
         }
       ])
+    llm_judge: |
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same number of movies per genre as the reference facet query $reference_answer.
 
       ### Scoring
       - Score 1.0 when per-genre counts in $response for matches in the 'movies' collection match the reference query.
@@ -130,11 +128,7 @@
     prompt: |
       On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and bucket them by decade of their 'released' date.
   expected:
-    llm_judge: |
-      ### Success criterion
-      For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $searchMeta: {
@@ -166,6 +160,9 @@
           }
         }
       ])
+    llm_judge: |
+      ### Success criterion
+      For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query $reference_answer.
 
       ### Scoring
       - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.

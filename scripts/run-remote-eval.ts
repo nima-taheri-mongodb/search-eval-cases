@@ -46,6 +46,7 @@ interface ParsedCli {
   dryRun: boolean;
   paramsJson?: string;
   metadataRegex?: string;
+  rowIds: string[];
   globs: string[];
 }
 
@@ -63,6 +64,7 @@ function parseCli(argv: string[]): ParsedCli {
     outputDir: "output",
     skipTraces: false,
     dryRun: false,
+    rowIds: [],
     globs: [],
   };
 
@@ -126,6 +128,14 @@ function parseCli(argv: string[]): ParsedCli {
       i++;
       continue;
     }
+    if (!afterSep && a === "--row-id") {
+      const value = argv[++i] ?? die("--row-id requires a row id");
+      for (const id of value.split(",").map((s) => s.trim()).filter(Boolean)) {
+        out.rowIds.push(id);
+      }
+      i++;
+      continue;
+    }
     if (!afterSep && a.startsWith("--")) {
       die(`Unknown flag: ${a}`);
     }
@@ -160,7 +170,7 @@ async function main(): Promise<void> {
     die(
       "Usage: pnpm eval:remote [flags] [glob...]\n" +
         "       pnpm eval:remote [flags] -- <glob> [glob...]\n" +
-        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --metadata-regex key=<regex> --output-dir DIR --skip-traces --dry-run",
+        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --metadata-regex key=<regex> --row-id ID (repeatable, comma-separated) --output-dir DIR --skip-traces --dry-run",
     );
   }
 
@@ -190,18 +200,40 @@ async function main(): Promise<void> {
     log(`Metadata regex: ${metadataRegex.key}=/${metadataRegex.regex.source}/`);
   }
 
+  const rowIdFilter =
+    cli.rowIds.length > 0 ? new Set(cli.rowIds) : undefined;
+  if (rowIdFilter) {
+    log(`Row id filter (${rowIdFilter.size}): ${[...rowIdFilter].join(", ")}`);
+  }
+
   const { rows, sources } = await loadRowsFromCaseFilesDetailed(
     files,
     absDatasetDir,
-    { metadataRegex },
+    { metadataRegex, rowIds: rowIdFilter },
   );
 
   if (rows.length === 0) {
+    const activeFilters = [
+      metadataRegex ? "--metadata-regex" : undefined,
+      rowIdFilter ? "--row-id" : undefined,
+    ].filter(Boolean);
     die(
-      metadataRegex
-        ? "No rows matched the file glob(s) and --metadata-regex filter"
+      activeFilters.length > 0
+        ? `No rows matched the file glob(s) and ${activeFilters.join(" + ")} filter(s)`
         : "No rows loaded from matched case files",
     );
+  }
+
+  if (rowIdFilter) {
+    const matched = new Set(
+      rows
+        .map((row) => (typeof row.id === "string" ? row.id : undefined))
+        .filter((id): id is string => Boolean(id)),
+    );
+    const missing = [...rowIdFilter].filter((id) => !matched.has(id));
+    if (missing.length > 0) {
+      log(`Warning: --row-id not found in matched files: ${missing.join(", ")}`);
+    }
   }
 
   let projectId = cli.projectId;
