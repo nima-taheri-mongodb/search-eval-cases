@@ -5,7 +5,8 @@
  * Local layout: dataset/{dataset}/[{category}/…]/{cases.yaml}
  * Taxonomy: dataset/taxonomy.yaml guides folder scaffold; updated on pull/apply/scaffold.
  *
- *   scaffold  taxonomy → folder tree + row stubs
+ *   taxonomy:apply  taxonomy → folder tree + row stubs
+ *   taxonomy:infer  cases → taxonomy (--prune drops orphaned leaves)
  *   plan      diff local vs remote using .sync-state.json baseline
  *   apply     execute plan (conservative by default; --prune for deletions)
  *   pull      remote → local YAML + refresh baseline + taxonomy
@@ -71,7 +72,12 @@ const EXPECTED_SCHEMA_FILE = "expected.schema.json";
 
 const ROW_INTERNAL_FIELDS = new Set(["_xact_id", "dataset_id"]);
 
-type Command = "plan" | "apply" | "pull" | "scaffold";
+type Command =
+  | "plan"
+  | "apply"
+  | "pull"
+  | "taxonomy:apply"
+  | "taxonomy:infer";
 
 interface CliOptions {
   command: Command;
@@ -102,7 +108,9 @@ Row metadata carries category, subcategory, group, subgroup, name, and descripti
 Baseline: <dir>/.sync-state.json
 
 Commands:
-  scaffold  Create folder tree + row stubs from dataset/taxonomy.yaml
+  taxonomy:apply  taxonomy.yaml → folder tree + row stubs (cases.yaml).
+  taxonomy:infer  cases.yaml → taxonomy.yaml. With --prune, drop taxonomy
+                  leaves that no longer have a backing case.
   plan      Show pending changes. Exit 1 if changes, 2 if blocked (conflicts).
   apply     Apply local changes to remote (skips drift, remote-only, conflicts).
   pull      Overwrite local case files from remote + refresh taxonomy.
@@ -121,7 +129,8 @@ Flags:
 Requires BRAINTRUST_API_KEY.
 
 Usage:
-  scripts/datasets.ts scaffold [-d DIR]
+  scripts/datasets.ts taxonomy:apply [-d DIR]
+  scripts/datasets.ts taxonomy:infer [-d DIR] [--prune]
   scripts/datasets.ts plan  [-p PROJECT] [-d DIR] [--prune] [-out plan.json]
   scripts/datasets.ts apply [-p PROJECT] [-d DIR] [--prune] [-f plan.json]
   scripts/datasets.ts pull  [-p PROJECT] [-d DIR] [--prune]`;
@@ -150,7 +159,8 @@ function parseArgs(argv: string[]): CliOptions {
     command !== "plan" &&
     command !== "apply" &&
     command !== "pull" &&
-    command !== "scaffold"
+    command !== "taxonomy:apply" &&
+    command !== "taxonomy:infer"
   ) {
     console.error(`Unknown command: ${command}`);
     usage(1);
@@ -311,11 +321,14 @@ async function loadRemoteSnapshot(
   return { remoteDatasets, remoteRowsByDataset };
 }
 
-async function updateTaxonomyFromLocal(dir: string): Promise<void> {
+async function updateTaxonomyFromLocal(
+  dir: string,
+  prune = false,
+): Promise<void> {
   const aggregated = await loadAllLocalDatasets(dir);
   const discovered = buildTaxonomyFromLocal(aggregated);
   const existing = await readTaxonomyFile(dir);
-  const merged = mergeTaxonomy(existing, discovered);
+  const merged = mergeTaxonomy(existing, discovered, prune);
   await writeTaxonomyFile(dir, merged);
 }
 
@@ -706,14 +719,14 @@ async function pullAll(
   console.log("Done.");
 }
 
-async function runScaffold(dir: string): Promise<void> {
+async function runTaxonomyApply(dir: string): Promise<void> {
   const taxonomy = await readTaxonomyFile(dir);
   if (taxonomy.length === 0) {
     console.error(`No taxonomy found at ${path.join(dir, "taxonomy.yaml")}`);
     throw new ProcessExit(1);
   }
 
-  console.log(`Scaffolding from taxonomy into '${dir}/'...`);
+  console.log(`Applying taxonomy into '${dir}/'...`);
   const result = await scaffoldFromTaxonomy(
     taxonomy,
     dir,
@@ -739,13 +752,25 @@ async function runScaffold(dir: string): Promise<void> {
   console.log("Done.");
 }
 
+async function runTaxonomyInfer(dir: string, prune: boolean): Promise<void> {
+  console.log(
+    `Inferring taxonomy from cases in '${dir}/'${prune ? " (prune)" : ""}...`,
+  );
+  await updateTaxonomyFromLocal(dir, prune);
+  console.log(`Updated ${path.join(dir, "taxonomy.yaml")}`);
+  console.log("Done.");
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const dir = resolveDir(options.dir);
 
   switch (options.command) {
-    case "scaffold":
-      await runScaffold(dir);
+    case "taxonomy:apply":
+      await runTaxonomyApply(dir);
+      break;
+    case "taxonomy:infer":
+      await runTaxonomyInfer(dir, options.prune);
       break;
     case "plan":
       await runPlan(options, dir);

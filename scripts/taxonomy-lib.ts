@@ -547,6 +547,7 @@ export function taxonomyFromMetadataPaths(
 export function mergeTaxonomy(
   existing: TaxonomyRoot[],
   discovered: TaxonomyRoot[],
+  prune = false,
 ): TaxonomyRoot[] {
   const descriptionByPath = new Map<string, string>();
   for (const record of [
@@ -563,22 +564,29 @@ export function mergeTaxonomy(
       descriptionByPath.set(key, record.description);
     }
   }
+  // When pruning, keep only leaves backed by a discovered (local) case;
+  // descriptions still prefer the curated existing taxonomy.
+  const allowedKeys = prune
+    ? new Set(flattenTaxonomy(discovered).map((record) => taxonomyPathKey(record)))
+    : null;
   return taxonomyFromMetadataPaths(
-    [...descriptionByPath.entries()].map(([key, description]) => {
-      const [dataset, category, subcategory, group, subgroup, name] =
-        key.split("\0");
-      return {
-        dataset: dataset!,
-        path: {
-          category: category || undefined,
-          subcategory: subcategory || undefined,
-          group: group || undefined,
-          subgroup: subgroup || undefined,
-        },
-        name: name!,
-        description,
-      };
-    }),
+    [...descriptionByPath.entries()]
+      .filter(([key]) => !allowedKeys || allowedKeys.has(key))
+      .map(([key, description]) => {
+        const [dataset, category, subcategory, group, subgroup, name] =
+          key.split("\0");
+        return {
+          dataset: dataset!,
+          path: {
+            category: category || undefined,
+            subcategory: subcategory || undefined,
+            group: group || undefined,
+            subgroup: subgroup || undefined,
+          },
+          name: name!,
+          description,
+        };
+      }),
   );
 }
 

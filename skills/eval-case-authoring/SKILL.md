@@ -11,21 +11,26 @@ description: >-
 
 ## When to use
 
-- Filling `input.prompt: ""` stubs after `pnpm scaffold`
+- Filling `input.prompt: ""` stubs after `pnpm taxonomy:apply`
 - Writing or reviewing `expected.llm_judge` / `expected.example`
 - Configuring `input.db_seed` and seed JSON changes
 - Running `pnpm typecheck`, `pnpm eval:remote`, or debugging failed traces
 
 ## Scaffolding workflow
 
-`pnpm scaffold` creates `cases.yaml` stubs under `dataset/` with one row per taxonomy leaf:
-`metadata.name`, `metadata.description`, `input.prompt: ""`.
+`pnpm taxonomy:apply` (taxonomy → cases) creates `cases.yaml` stubs under `dataset/`
+with one row per taxonomy leaf: `metadata.name`, `metadata.description`,
+`input.prompt: ""`.
 
 Fill stubs **per cases.yaml file** using a **complete reference row** in that file (or an
 adjacent filled file) as the template. Copy `input` / `expected` / `metadata`
 shape; adapt prompt, `db_seed`, and judge per leaf.
 
 **Do not** invent structure from `taxonomy.yaml` alone when a reference row exists.
+
+To go the other way (cases → taxonomy) after adding/removing cases, run
+`pnpm taxonomy:infer` (union; keeps existing leaves) or `pnpm taxonomy:infer --prune`
+(mirror; drops taxonomy leaves with no backing case).
 
 ## Assumptions
 

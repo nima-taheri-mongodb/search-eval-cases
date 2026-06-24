@@ -65,10 +65,11 @@ Run with `pnpm <script>`. Most Braintrust commands need `BRAINTRUST_API_KEY`.
 
 | Script | Command | What it does |
 |--------|---------|--------------|
-| **`scaffold`** | `tsx scripts/datasets.ts scaffold` | 🏗️ Build `dataset/{L1}/{L2}/` folders + empty row stubs from `taxonomy.yaml` |
+| **`taxonomy:apply`** | `tsx scripts/datasets.ts taxonomy:apply` | 🏗️ taxonomy → cases: build `dataset/{L1}/{L2}/` folders + empty row stubs from `taxonomy.yaml` |
+| **`taxonomy:infer`** | `tsx scripts/datasets.ts taxonomy:infer` | 🔁 cases → taxonomy: rebuild `taxonomy.yaml` from `cases.yaml` row metadata (`--prune` drops leaves with no backing case) |
 | **`plan`** | `tsx scripts/datasets.ts plan` | 🔍 Diff local YAML vs Braintrust using `.sync-state.json` (+ `schemas/{input,expected}.schema.json` vs each dataset's `metadata.__schemas`). Exit **1** if changes pending, **2** if blocked (conflicts) |
 | **`apply`** | `tsx scripts/datasets.ts apply` | ⬆️ Push local changes to Braintrust (creates/updates rows + syncs `metadata.__schemas` from `schemas/`; skips drift, conflicts, remote-only unless `--prune`) |
-| **`pull`** | `tsx scripts/datasets.ts pull` | ⬇️ Overwrite local case files from remote + refresh `_meta.yaml`, `.sync-state.json`, and `taxonomy.yaml` |
+| **`pull`** | `tsx scripts/datasets.ts pull` | ⬇️ Overwrite local case files from remote + refresh `_meta.yaml`, `.sync-state.json`, and `taxonomy.yaml` (`--prune` deletes local rows/files/datasets absent remotely) |
 | **`eval:remote`** | `tsx scripts/run-remote-eval.ts` | 🧪 Run selected `cases.yaml` rows against the MCP server’s Braintrust dev eval server (inline data, no dataset sync). See [Remote eval](#-remote-eval) |
 | **`typecheck`** | `tsx scripts/typecheck.ts` | ✅ Validate `dataset/**/*.yaml` against JSON Schema |
 | **`mcp-server:pull-data`** | `tsx scripts/mcp-server-pull-data.ts` | 🔄 Copy `dbseed/` + regenerate `schemas/input.schema.json` & `expected.schema.json` from **mongodb-mcp-server** |
@@ -76,23 +77,27 @@ Run with `pnpm <script>`. Most Braintrust commands need `BRAINTRUST_API_KEY`.
 
 ### Dataset sync flags
 
-Shared by `plan`, `apply`, `pull`, `scaffold`:
+Shared by `plan`, `apply`, `pull`, `taxonomy:apply`, `taxonomy:infer`:
 
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `-p` / `--project` | `mongodb-mcp-server-evals` | Braintrust project name |
 | `-d` / `--dir` | `dataset` | Local dataset root |
-| `--prune` | off | Allow deleting remote rows/datasets absent locally |
+| `--prune` | off | Allow deletions. `apply`: delete remote rows/datasets absent locally. `pull`: delete local rows/files/datasets absent remotely. `taxonomy:infer`: drop taxonomy leaves with no backing case |
 | `-out FILE` | — | (`plan`) Write plan JSON |
 | `-f` / `--plan FILE` | — | (`apply`) Apply a saved plan instead of re-planning |
 
 **Typical flows**
 
 ```bash
-# Start from taxonomy
-pnpm scaffold
+# Start from taxonomy (taxonomy → case stubs)
+pnpm taxonomy:apply
 
-# Edit local YAML, preview remote diff
+# Edit local YAML, then rebuild taxonomy from cases (cases → taxonomy)
+pnpm taxonomy:infer            # union: keeps existing leaves
+pnpm taxonomy:infer --prune    # mirror: drops leaves with no backing case
+
+# Preview remote diff
 pnpm plan
 
 # Push local → Braintrust (safe: no deletes)
@@ -103,6 +108,9 @@ pnpm apply --prune
 
 # Remote → local (clobber local case files)
 pnpm pull
+
+# Remote → local mirror (also delete local rows/files absent remotely)
+pnpm pull --prune
 ```
 
 ---

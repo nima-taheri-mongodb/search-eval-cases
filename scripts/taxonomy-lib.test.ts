@@ -196,6 +196,53 @@ describe("taxonomyFromMetadataPaths", () => {
     assert.match(yaml, /original/);
     assert.match(yaml, /new leaf/);
   });
+
+  it("prune keeps only discovered leaves but preserves existing descriptions", () => {
+    const existing = taxonomyFromMetadataPaths([
+      {
+        dataset: "Search",
+        path: { category: "A" },
+        name: "Kept",
+        description: "curated",
+      },
+      {
+        dataset: "Search",
+        path: { category: "A" },
+        name: "Orphan",
+        description: "stale",
+      },
+    ]);
+    const discovered = taxonomyFromMetadataPaths([
+      {
+        dataset: "Search",
+        path: { category: "A" },
+        name: "Kept",
+        description: "from case",
+      },
+      {
+        dataset: "Search",
+        path: { category: "A" },
+        name: "New",
+        description: "fresh",
+      },
+    ]);
+
+    const names = (roots: TaxonomyRoot[]) =>
+      flattenTaxonomy(roots)
+        .map((r) => r.name)
+        .sort();
+
+    assert.deepEqual(names(mergeTaxonomy(existing, discovered)), [
+      "Kept",
+      "New",
+      "Orphan",
+    ]);
+
+    const pruned = mergeTaxonomy(existing, discovered, true);
+    assert.deepEqual(names(pruned), ["Kept", "New"]);
+    const kept = flattenTaxonomy(pruned).find((r) => r.name === "Kept");
+    assert.equal(kept?.description, "curated");
+  });
 });
 
 describe("formatTaxonomyBranchKey", () => {

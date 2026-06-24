@@ -8,7 +8,8 @@
     "pull": "tsx scripts/datasets.ts pull",
     "plan": "tsx scripts/datasets.ts plan",
     "apply": "tsx scripts/datasets.ts apply",
-    "scaffold": "tsx scripts/datasets.ts scaffold",
+    "taxonomy:apply": "tsx scripts/datasets.ts taxonomy:apply",
+    "taxonomy:infer": "tsx scripts/datasets.ts taxonomy:infer",
     "mcp-server:pull-data": "tsx scripts/mcp-server-pull-data.ts",
     "eval:remote": "tsx scripts/run-remote-eval.ts",
     "test": "tsx --test scripts/*.test.ts"
