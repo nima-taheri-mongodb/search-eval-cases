@@ -1,37 +1,8 @@
 taxonomy:
   - dataset=Search:
-      - category=Vector Index Management:
-          - subcategory=Index Creation:
-              - Similarity Functions: similarity functions for vector search including cosine, euclidean, and dot product
-              - Quantization: quantization for vector search including scalar and binary
-              - Filter Field Declaration: filter field definitions for vector search including equality, range, and set membership
-          - subcategory=Index Lifecycle:
-              - Vector Index Deletion: vector index deletion for vector search
-      - category=Vector Query Construction:
-          - subcategory=Query Mode:
-              - Approximate Nearest Neighbor: approximate nearest neighbor for vector search query
-              - Exact Nearest Neighbor: exact nearest neighbor for vector search query
-          - subcategory=Pre-Filtering:
-              - Pre-Filter Equality: pre-filter equality for vector search query
-          - subcategory=Post-Filtering:
-              - Post-Filter via Match: post-filter via match for vector search query
-          - subcategory=Query Features:
-              - Score Projection: score projection for vector search query
-              - Sort by External Field: sort by external field for vector search query
-      - category=Vector Query Performance:
-          - subcategory=Query Diagnostics:
-              - Explain Execution Stats: explain execution stats for vector search query
-              - Trace Document IDs: trace document ids for vector search query
-          - subcategory=Operations:
-              - Recall Tuning: recall tuning for vector search query
-              - Latency Reduction: latency reduction for vector search query
-              - Filtered Query Latency: filtered query latency for vector search query
-              - Scaling and Search Nodes: scaling and search nodes for vector search query
-              - Cost Optimization: cost optimization for vector search query
       - category=Text Search Index Management:
           - subcategory=Index Creation:
               - Dynamic Mapping Mode: dynamic mapping mode for text search index creation
-              - Explicit Field Definitions: explicit field definitions for text search index creation
               - Configurable Dynamic TypeSets: configurable dynamic type sets for text search index creation
               - Field Type Definitions: field type definitions for text search index creation
               - Index-Time Analyzer: index-time analyzer for text search index creation
@@ -47,64 +18,11 @@ taxonomy:
               - Index Partitioning: index partitioning for text search index creation
           - subcategory=Index Lifecycle:
               - Index Deletion: index deletion for text search index creation
-          - subcategory=Hybrid Index Design:
-              - Dynamic Fields for New Tenants: dynamic fields for new tenants for text search index creation
-              - Search-as-You-Type Indexing: search-as-you-type indexing for text search index creation
-              - Filter Field Specification: filter field specification for text search index creation
-              - Subset Collection Indexing: subset collection indexing for text search index creation
       - category=Text Search Query Construction:
-          - subcategory=Operators:
-              - Basic Text Search: basic text search for text search query
-              - Phrase Search: phrase search for text search query
-              - Fuzzy Search: fuzzy search for text search query
-              - Autocomplete Typeahead: autocomplete typeahead for text search query
-              - Wildcard Search: wildcard search for text search query
-              - Regular Expression Search: regular expression search for text search query
-              - Exact Value Match: exact value match for text search query
-              - Match Any Value in Array: match any value in array for text search query
-              - Range Queries: range queries for text search query
-              - Proximity-Scored Search: proximity-scored search for text search query
-              - Field Existence Check: field existence check for text search query
-              - Find Similar Documents: find similar documents for text search query
-              - Lucene Query String: lucene query string for text search query
-              - Geospatial Filtering: geospatial filtering for text search query
-              - Spatial Relation Queries: spatial relation queries for text search query
-              - Embedded Document Search: embedded document search for text search query
-              - Vector Search within Search: vector search within search for text search query
-          - subcategory=Compound Queries:
-              - Required Clauses: required clauses for text search query
-              - Optional Boosting Clauses: optional boosting clauses for text search query
-              - Filter-Only Clauses: filter-only clauses for text search query
-              - Exclusion Clauses: exclusion clauses for text search query
-          - subcategory=Scoring and Relevance:
-              - Static Score Boost: static score boost for text search query
-              - Dynamic Score Boost from Field: dynamic score boost from field for text search query
-              - Constant Score: constant score for text search query
-              - Computed Score Expression: computed score expression for text search query
-              - Embedded Document Scoring: embedded document scoring for text search query
-              - Score Breakdown: score breakdown for text search query
-          - subcategory=Highlighting and Synonyms:
-              - Search Highlighting: search highlighting for text search query
-              - Synonym-Aware Search: synonym-aware search for text search query
           - subcategory=Faceted Search:
               - String Facets: string facets for text search query
               - Number Facets: number facets for text search query
               - Date Facets: date facets for text search query
-          - subcategory=Count Analytics:
-              - Exact Total Count: exact total count for text search query
-              - Fast Approximate Count: fast approximate count for text search query
-              - Count Threshold: count threshold for text search query
-              - Inline Count via Search Meta: inline count via search meta for text search query
-          - subcategory=Pagination:
-              - Offset-Based Pagination: offset-based pagination for text search query
-              - Token-Based Cursor Pagination: token-based cursor pagination for text search query
-          - subcategory=Sorting:
-              - Native Sort within Search: native sort within search for text search query
-              - Post-Search Sort: post-search sort for text search query
-          - subcategory=Search Stage Options:
-              - Concurrent Search: concurrent search for text search query
-              - Return Stored Fields: return stored fields for text search query
-              - Return Scope for Embedded Docs: return scope for embedded docs for text search query
           - subcategory=Post-Search Aggregation:
               - Parallel Sub-Pipelines: parallel sub-pipelines for text search query
               - Aggregate Search Results: aggregate search results for text search query
@@ -115,45 +33,43 @@ taxonomy:
               - Promote Embedded Document: promote embedded document for text search query
               - Materialize Results: materialize results for text search query
               - Random Sample: random sample for text search query
-          - subcategory=Cross-Cutting Query Design:
-              - Path-Based Relevance Tuning: path-based relevance tuning for text search query
-              - Email Suffix Pattern Search: email suffix pattern search for text search query
-              - Sort on Non-Score Field: sort on non-score field for text search query
-              - Consistent Paginated Results: consistent paginated results for text search query
-      - category=Text Search Query Performance:
-          - subcategory=Query Diagnostics:
-              - Search Query Bottleneck Analysis: search query bottleneck analysis for text search query
-              - Sub-Second Latency Optimization: sub-second latency optimization for text search query
-          - subcategory=Search Stage Options:
-              - Concurrent Search: concurrent search for text search query
-              - Return Stored Fields: return stored fields for text search query
-          - subcategory=Operations:
-              - Scaling and Search Nodes: scaling and search nodes for text search query
-              - Cost Optimization: cost optimization for text search query
       - category=Hybrid Search:
           - subcategory=Rank Fusion:
               - Basic Reciprocal Rank Fusion: basic reciprocal rank fusion for hybrid search
               - RRF with Weighted Pipelines: RRF with weighted pipelines for hybrid search
               - RRF with Score Details: RRF with score details for hybrid search
-              - Multi-Field Multi-Pipeline: multi-field multi-pipeline for hybrid search
+              - Multi-Field Multi-Pipeline: multi-field multi-pipeline rank fusion for hybrid search
           - subcategory=Score Fusion:
-              - Score Fusion Sigmoid: score fusion sigmoid for hybrid search
-              - Score Fusion MinMax and Expression: score fusion minmax and expression for hybrid search
-              - Score Fusion Average: score fusion average for hybrid search
-              - Score Fusion No Normalization: score fusion no normalization for hybrid search
-              - Score Fusion with Boosted Text: score fusion with boosted text for hybrid search
-          - subcategory=Filtering:
-              - Pre-Filters in Sub-Pipelines: pre-filters in sub-pipelines for hybrid search
-              - Post-Filter after Fusion: post-filter after fusion for hybrid search
-          - subcategory=Sub-Pipelines:
-              - Match Sub-Pipeline: match sub-pipeline for hybrid search
+              - Sigmoid Normalization: score fusion with sigmoid normalization for hybrid search
+              - MinMax Normalization: score fusion with minmax scaler normalization for hybrid search
+              - Expression Combination: score fusion with a custom combination expression for hybrid search
+              - Weighted Average Combination: score fusion with weighted average combination for hybrid search
+              - No Normalization: score fusion without normalization for hybrid search
+          - subcategory=Reranking:
+              - Rerank after Vector Search: rerank after vector search for hybrid search
+              - Rerank after Rank Fusion: rerank after rank fusion for hybrid search
+              - Retrieve Fuse Rerank Chain: full retrieve-fuse-rerank chain for hybrid search
+              - Rerank Top-N of Candidates: rerank to return the top n of a larger candidate set for hybrid search
+          - subcategory=Sub-Pipeline Construction:
+              - Named Pipeline Map: named sub-pipeline map structure for hybrid search
+              - Match Filter Sub-Pipeline: match filter sub-pipeline for hybrid search
               - Sort Sub-Pipeline: sort sub-pipeline for hybrid search
-              - GeoNear Sub-Pipeline: geo near sub-pipeline for hybrid search
-              - Sample Sub-Pipeline: sample sub-pipeline for hybrid search
-              - Score Stage in Sub-Pipelines: score stage in sub-pipelines for hybrid search
-          - subcategory=Cross-Cutting:
+              - GeoNear Sub-Pipeline: geonear sub-pipeline for hybrid search
+              - Skip and Limit Sub-Pipeline: skip and limit sub-pipeline for hybrid search
+              - Disallowed Project in Sub-Pipeline: rejecting a project stage inside a sub-pipeline for hybrid search
+          - subcategory=Result Shaping:
+              - Limit after Fusion: limit stage after the fusion stage for hybrid search
+              - Unset Embedding Fields: unset embedding fields after fusion for hybrid search
+              - Post-Filter after Fusion: post-filter after fusion for hybrid search
+          - subcategory=Index Prerequisites:
+              - Dual Search and Vector Index: requiring both a search and a vector index for hybrid search
+              - AutoEmbed Hybrid Index: auto-embed and search index for hybrid search
+          - subcategory=Intent Recognition:
+              - Explicit Hybrid Search Request: explicit hybrid search request for hybrid search
+              - Combine Keyword and Semantic: combining keyword and semantic retrieval for hybrid search
+              - Exact and Semantic Both Matter: exact and semantic relevance both matter for hybrid search
+              - Fusion over UnionWith: preferring fusion over unionWith for combining searches for hybrid search
+              - Reorder vs Neural Rerank: distinguishing a score reorder from a neural rerank for hybrid search
               - Hybrid vs Pure Lexical: hybrid vs pure lexical for hybrid search
               - Hybrid vs Pure Vector: hybrid vs pure vector for hybrid search
-              - Fusion Type Tuning: fusion type tuning for hybrid search
-              - Debug Worse Hybrid Results: debug worse hybrid results for hybrid search
-              - Semantic Keyword and Recency Boost: semantic keyword and recency boost for hybrid search
+              - Debug Worse Hybrid Results: debugging worse hybrid results for hybrid search
