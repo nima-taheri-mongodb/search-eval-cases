@@ -8,6 +8,7 @@ import {
   formatTaxonomyBranchKey,
   mergeTaxonomy,
   metadataFromTaxonomyPath,
+  orderCaseRowKeys,
   parseTaxonomyKey,
   parseTaxonomyYaml,
   rowMatchKey,
@@ -251,6 +252,58 @@ describe("formatTaxonomyBranchKey", () => {
       formatTaxonomyBranchKey("category", "Faceted Search"),
       "category=Faceted Search",
     );
+  });
+});
+
+describe("orderCaseRowKeys", () => {
+  it("orders root keys id, metadata, input, expected, then the rest", () => {
+    const row = {
+      origin: null,
+      expected: { llm_judge: "j" },
+      input: { prompt: "p" },
+      metadata: { name: "n", description: "d" },
+      id: "abc",
+    } as unknown as CaseRow;
+    assert.deepEqual(Object.keys(orderCaseRowKeys(row)), [
+      "id",
+      "metadata",
+      "input",
+      "expected",
+      "origin",
+    ]);
+  });
+
+  it("orders expected keys reference_answer, llm_judge, then the rest", () => {
+    const row = {
+      id: "x",
+      expected: { example: "e", llm_judge: "j", reference_answer: "r" },
+    } as unknown as CaseRow;
+    const ordered = orderCaseRowKeys(row);
+    assert.deepEqual(Object.keys(ordered.expected as object), [
+      "reference_answer",
+      "llm_judge",
+      "example",
+    ]);
+  });
+
+  it("preserves metadata field order and values", () => {
+    const row = {
+      id: "x",
+      metadata: { name: "n", description: "d", category: "c" },
+    } as unknown as CaseRow;
+    const ordered = orderCaseRowKeys(row);
+    assert.deepEqual(Object.keys(ordered.metadata as object), [
+      "name",
+      "description",
+      "category",
+    ]);
+  });
+
+  it("handles missing id/expected and non-object expected without throwing", () => {
+    const stub = { metadata: { name: "n" }, input: { prompt: "" } } as CaseRow;
+    assert.deepEqual(Object.keys(orderCaseRowKeys(stub)), ["metadata", "input"]);
+    const weird = { id: "x", expected: null } as unknown as CaseRow;
+    assert.deepEqual(orderCaseRowKeys(weird).expected, null);
   });
 });
 

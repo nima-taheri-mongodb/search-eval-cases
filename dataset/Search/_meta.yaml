@@ -98,16 +98,23 @@ dataset:
         type: object
         $schema: https://json-schema.org/draft/2020-12/schema
         properties:
-          reference_answer:
+          example:
             type: string
             description: Optional illustrative command or answer that would satisfy the judge.
           llm_judge:
             anyOf:
               - type: string
-              - type: array
-                items:
-                  type: string
-            description: Grading criteria (one string or several) the LLM judge checks the output against.
+            description: |-
+              Provide a prompt for the LLM judge to evaluate and make assertions about:
+              - the state of the database after the assistant completes the prompt. The judge may use any available read-only MCP tools to check and validate these assertions.
+              - Use $response to retrieve the assistant’s response for this eval case.
+              - Use $conversation to access the full conversation history including tool calls and tool results for this eval case.
+              - Use $reference_answer to obtain the reference answer for this eval case as specified in "expected.reference_answer" field.
+          reference_answer:
+            type: string
+            description: |-
+              The reference answer for the eval case.
+              This helps human reviewers understand the expected answer, and can also be used by the LLM judge by referencing $reference_answer in the LLM judge prompt.
         description: Expected outcome for a case, expressed as LLM-judge criteria.
         additionalProperties: false
-      updated_at: 2026-06-24T17:22:06.780Z
+      updated_at: 2026-06-24T23:23:20.000Z

@@ -280,6 +280,54 @@ export function rowForBraintrust(row: CaseRow): DatasetRow {
   return rest;
 }
 
+const ROOT_KEY_ORDER: readonly string[] = ["id", "metadata", "input", "expected"];
+const EXPECTED_KEY_ORDER: readonly string[] = ["reference_answer", "llm_judge"];
+const INPUT_KEY_ORDER: readonly string[] = ["prompt", "db_seed"];
+
+function orderKeys<T extends Record<string, unknown>>(
+  obj: T,
+  priority: readonly string[],
+): T {
+  const ordered: Record<string, unknown> = {};
+  for (const key of priority) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      ordered[key] = obj[key];
+    }
+  }
+  for (const key of Object.keys(obj)) {
+    if (!priority.includes(key)) {
+      ordered[key] = obj[key];
+    }
+  }
+  return ordered as T;
+}
+
+/**
+ * Reorder a case row's keys for stable serialization. Root keys follow
+ * `id, metadata, input, expected`, then any remaining keys (e.g. `origin`) in
+ * their original order; within `expected`, `reference_answer` precedes
+ * `llm_judge`, then any remaining keys. Values are untouched (metadata field
+ * order is preserved as-is).
+ */
+export function orderCaseRowKeys(row: CaseRow): CaseRow {
+  const ordered = orderKeys(row as Record<string, unknown>, ROOT_KEY_ORDER);
+  const expected = ordered.expected;
+  if (expected && typeof expected === "object" && !Array.isArray(expected)) {
+    ordered.expected = orderKeys(
+      expected as Record<string, unknown>,
+      EXPECTED_KEY_ORDER,
+    );
+  }
+  const input = ordered.input;
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    ordered.input = orderKeys(
+      input as Record<string, unknown>,
+      INPUT_KEY_ORDER,
+    );
+  }
+  return ordered as CaseRow;
+}
+
 function parseRawNodes(
   entries: RawTaxonomyEntry[],
   parentKind?: TaxonomyBranchKind,
@@ -663,7 +711,7 @@ export async function scaffoldFromTaxonomy(
       updated.push(filePath);
     }
 
-    await writeYaml(filePath, merged);
+    await writeYaml(filePath, merged.map(orderCaseRowKeys));
   }
 
   return { created, updated };

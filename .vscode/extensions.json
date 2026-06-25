@@ -1,0 +1,11 @@
+{
+  // Extensions this workspace's .vscode/settings.json relies on.
+  // VS Code prompts to install these when the folder is opened.
+  "recommendations": [
+    // Together they provide schema validation/autocomplete on dataset/**/*.yaml
+    "redhat.vscode-yaml",
+    "remcohaszing.schemastore",
+    // Powers highlighting (input.prompt, expected.reference_answer, expected.llm_judge, $reference_answer, $response, $conversation)
+    "fabiospampinato.vscode-highlight"
+  ]
+}

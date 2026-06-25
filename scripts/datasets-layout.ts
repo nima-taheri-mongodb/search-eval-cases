@@ -12,6 +12,7 @@ import {
   casesFilePathFromMetadata,
   enrichRowMetadata,
   getCaseMetadata,
+  orderCaseRowKeys,
   rowForBraintrust,
   rowMatchKey,
   taxonomyFromMetadataPaths,
@@ -142,7 +143,7 @@ export async function writeCaseRowsFile(
   rows: CaseRow[],
 ): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
-  const yaml = stringify(rows, { lineWidth: 0 });
+  const yaml = stringify(rows.map(orderCaseRowKeys), { lineWidth: 0 });
   await writeFile(filePath, yaml.endsWith("\n") ? yaml : `${yaml}\n`, "utf8");
 }
 

@@ -6,42 +6,55 @@
     "./schemas/dataset-meta.schema.json": "dataset/*/_meta.yaml"
   },
   // highlight prompt and llm_judge in dataset files (block | scalars and inline single-line values)
-  // vscode-highlight decorates capturing groups only; use no groups so the full match is highlighted
+  // vscode-highlight decorates capturing groups when present; capture only the value (after the
+  // key:) so the key name itself (prompt:/llm_judge:/reference_answer:) is not highlighted
   // https://github.com/fabiospampinato/vscode-highlight
   "highlight.regexes": {
-    "(?:^|\\n)[ \\t]+prompt:(?:\\s*\\|[-+]?\\s*\\n(?:(?:[ \\t]{6,}.*)?\\n)*|\\s+(?!\\|)[^\\n]+)": {
+    "(?:^|\\n)[ \\t]+prompt:(?:\\s*\\|[-+]?\\s*\\n((?:(?:[ \\t]{6,}.*)?\\n)*)|\\s+(?!\\|)([^\\n]+))": {
       "regexFlags": "g",
       "filterFileRegex": ".*\\.(yaml|yml)",
+      // two groups: [1] block-scalar body, [2] inline value; one decoration per group (same color)
       "decorations": [
         {
           "color": "rgb(203, 244, 55)",
           "before": {
             // "contentText": "💬 "
           }
+        },
+        {
+          "color": "rgb(203, 244, 55)"
         }
       ]
     },
-    "(?:^|\\n)[ \\t]+llm_judge:(?:\\s*\\|[-+]?\\s*\\n(?:(?:[ \\t]{6,}.*)?\\n)*|\\s+(?!\\|)[^\\n]+)": {
+    "(?:^|\\n)[ \\t]+llm_judge:(?:\\s*\\|[-+]?\\s*\\n((?:(?:[ \\t]{6,}.*)?\\n)*)|\\s+(?!\\|)([^\\n]+))": {
       "regexFlags": "g",
       "filterFileRegex": ".*\\.(yaml|yml)",
+      // two groups: [1] block-scalar body, [2] inline value; one decoration per group (same color)
       "decorations": [
         {
           "color": "rgb(249, 60, 129)",
           "before": {
             // "contentText": "👩‍⚖️ "
           }
+        },
+        {
+          "color": "rgb(249, 60, 129)"
         }
       ]
     },
-    "(?:^|\\n)[ \\t]+reference_answer:(?:\\s*\\|[-+]?\\s*\\n(?:(?:[ \\t]{6,}.*)?\\n)*|\\s+(?!\\|)[^\\n]+)": {
+    "(?:^|\\n)[ \\t]+reference_answer:(?:\\s*\\|[-+]?\\s*\\n((?:(?:[ \\t]{6,}.*)?\\n)*)|\\s+(?!\\|)([^\\n]+))": {
       "regexFlags": "g",
       "filterFileRegex": ".*\\.(yaml|yml)",
+      // two groups: [1] block-scalar body, [2] inline value; one decoration per group (same color)
       "decorations": [
         {
           "color": "rgb(218, 157, 70)",
           "before": {
             // "contentText": "👩‍⚖️ "
           }
+        },
+        {
+          "color": "rgb(218, 157, 70)"
         }
       ]
     },

@@ -1,5 +1,12 @@
 - id: 86fcd90a-5992-4dfd-b1f7-48f0b84988b9
+  metadata:
+    name: Aggregate Search Results
+    description: aggregate search results for text search query
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'Romance' in their genres and 'marriage wedding sweetheart' (use text search) in their plot.
     db_seed:
       - movies:
           indexes:
@@ -8,8 +15,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'Romance' in their genres and 'marriage wedding sweetheart' (use text search) in their plot.
   expected:
     llm_judge: |
       ### Success criterion
@@ -37,14 +42,16 @@
       - Score 1.0 when $response matches the reference query results from the 'movies' collection.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
-  metadata:
-    name: Aggregate Search Results
-    description: aggregate search results for text search query
-    category: Text Search Query Construction
-    subcategory: Post-Search Aggregation
   origin: null
 - id: 40bc4cc4-ded1-4f7f-8964-faf2a52c2056
+  metadata:
+    name: Parallel Sub-Pipelines
+    description: parallel sub-pipelines for text search query
+    category: Text Search Query Construction
+    subcategory: Post-Search Aggregation
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. In a single aggregation pass, return both the total number of matches and the list of their titles.
     db_seed:
       - movies:
           indexes:
@@ -53,8 +60,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. In a single aggregation pass, return both the total number of matches and the list of their titles.
   expected:
     llm_judge: |
       ### Success criterion
@@ -83,13 +88,16 @@
       - Score 1.0 when $response includes both the correct total count and title list from the reference query on the 'movies' collection.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  origin: null
+- id: 22aca9d4-3217-4733-aeef-6cbf63302037
   metadata:
+    name: Flatten Arrays
+    description: flatten arrays for text search query
     category: Text Search Query Construction
     subcategory: Post-Search Aggregation
-    name: Parallel Sub-Pipelines
-    description: parallel sub-pipelines for text search query
-- id: 22aca9d4-3217-4733-aeef-6cbf63302037
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and output one document per cast member.
     db_seed:
       - movies:
           indexes:
@@ -98,8 +106,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and output one document per cast member.
   expected:
     llm_judge: |
       ### Success criterion
@@ -125,13 +131,16 @@
       - Score 1.0 when $response matches the reference query on the 'movies' collection (one document per cast member).
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  origin: null
+- id: 560be07c-ee14-40a8-a0bd-7fdcc277530f
   metadata:
+    name: Bucket into Ranges
+    description: bucket into ranges for text search query
     category: Text Search Query Construction
     subcategory: Post-Search Aggregation
-    name: Flatten Arrays
-    description: flatten arrays for text search query
-- id: 560be07c-ee14-40a8-a0bd-7fdcc277530f
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in the 'plot' field and bucket them by the 'rating' field into ranges [0, 5), [5, 7), and [7, 10].
     db_seed:
       - movies:
           indexes:
@@ -140,8 +149,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'father daughter family' (use text search) in the 'plot' field and bucket them by the 'rating' field into ranges [0, 5), [5, 7), and [7, 10].
   expected:
     llm_judge: |
       ### Success criterion
@@ -172,13 +179,16 @@
       - Score 1.0 when per-bucket counts in $response for matches in the 'movies' collection match the reference query.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  origin: null
+- id: eaf7107a-fc10-424c-9dea-b652e1c2622b
   metadata:
+    name: Shorthand Frequency Count
+    description: shorthand frequency count for text search query
     category: Text Search Query Construction
     subcategory: Post-Search Aggregation
-    name: Bucket into Ranges
-    description: bucket into ranges for text search query
-- id: eaf7107a-fc10-424c-9dea-b652e1c2622b
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and show how many of them each director has, sorted from most to fewest.
     db_seed:
       - movies:
           indexes:
@@ -187,8 +197,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and show how many of them each director has, sorted from most to fewest.
   expected:
     llm_judge: |
       ### Success criterion
@@ -214,13 +222,16 @@
       - Score 1.0 when per-director counts and sort order in $response for matches in the 'movies' collection match the reference query.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  origin: null
+- id: 6e2c1981-cfe4-439d-94ce-e80459149a43
   metadata:
+    name: Join with Other Collections
+    description: join with other collections for text search query
     category: Text Search Query Construction
     subcategory: Post-Search Aggregation
-    name: Shorthand Frequency Count
-    description: shorthand frequency count for text search query
-- id: 6e2c1981-cfe4-439d-94ce-e80459149a43
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'alien spaceship earth invasion' (use text search) in the 'plot' field. For each match, attach a 'filmography' array of all movies in the 'movies' collection that share the same 'director' field value.
     db_seed:
       - movies:
           indexes:
@@ -229,8 +240,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'alien spaceship earth invasion' (use text search) in the 'plot' field. For each match, attach a 'filmography' array of all movies in the 'movies' collection that share the same 'director' field value.
   expected:
     llm_judge: |
       ### Success criterion
@@ -261,13 +270,16 @@
       - Score 1.0 when $response matches the reference query on the 'movies' collection (each match has the correct 'filmography' array).
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  origin: null
+- id: 2370f91f-528e-4b0d-adf8-80a4057b831f
   metadata:
+    name: Promote Embedded Document
+    description: promote embedded document for text search query
     category: Text Search Query Construction
     subcategory: Post-Search Aggregation
-    name: Join with Other Collections
-    description: join with other collections for text search query
-- id: 2370f91f-528e-4b0d-adf8-80a4057b831f
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. For each, build a sub-document of { title, rating } and promote it to be the top-level document.
     db_seed:
       - movies:
           indexes:
@@ -276,8 +288,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. For each, build a sub-document of { title, rating } and promote it to be the top-level document.
   expected:
     llm_judge: |
       ### Success criterion
@@ -303,13 +313,16 @@
       - Score 1.0 when $response matches the reference query on the 'movies' collection (root documents contain only 'title' and 'rating').
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  origin: null
+- id: 0fe57592-b121-45ec-a02e-8ff1a4da9ed9
   metadata:
+    name: Materialize Results
+    description: materialize results for text search query
     category: Text Search Query Construction
     subcategory: Post-Search Aggregation
-    name: Promote Embedded Document
-    description: promote embedded document for text search query
-- id: 0fe57592-b121-45ec-a02e-8ff1a4da9ed9
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and save the matching documents into a new collection named 'family_movies'.
     db_seed:
       - movies:
           indexes:
@@ -318,8 +331,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and save the matching documents into a new collection named 'family_movies'.
   expected:
     llm_judge: |
       ### Success criterion
@@ -342,13 +353,16 @@
       - Score 1.0 when 'family_movies' exists and contains the same documents from the 'movies' collection as the reference query.
       - Reduce the score to 0 if the 'family_movies' collection is missing or empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to produce the results.
+  origin: null
+- id: 0f9a6381-e3b4-4dd7-b6cf-0f305c3b3f7c
   metadata:
+    name: Random Sample
+    description: random sample for text search query
     category: Text Search Query Construction
     subcategory: Post-Search Aggregation
-    name: Materialize Results
-    description: materialize results for text search query
-- id: 0f9a6381-e3b4-4dd7-b6cf-0f305c3b3f7c
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and return a random sample of 2 of them.
     db_seed:
       - movies:
           indexes:
@@ -357,8 +371,6 @@
                   dynamic: true
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and return a random sample of 2 of them.
   expected:
     llm_judge: |
       ### Success criterion
@@ -381,8 +393,4 @@
       - Score 1.0 when $response contains at most 2 movies from the 'movies' collection and every returned movie appears in the reference query results.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
-  metadata:
-    category: Text Search Query Construction
-    subcategory: Post-Search Aggregation
-    name: Random Sample
-    description: random sample for text search query
+  origin: null

@@ -1,5 +1,12 @@
 - id: 3c264f64-dc66-410e-aa7b-4b0722189ff3
+  metadata:
+    name: Number Facets
+    description: number facets for text search query
+    category: Text Search Query Construction
+    subcategory: Faceted Search
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and bucket them by decade of their 'release_year'.
     db_seed:
       - movies:
           indexes:
@@ -13,8 +20,6 @@
                       type: number
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and bucket them by decade of their 'release_year'.
   expected:
     reference_answer: |
       aggregate([
@@ -51,14 +56,16 @@
       - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
-  metadata:
-    name: Number Facets
-    description: number facets for text search query
-    category: Text Search Query Construction
-    subcategory: Faceted Search
   origin: null
 - id: c895852c-4737-407a-b430-f012f156d758
+  metadata:
+    name: String Facets
+    description: string facets for text search query
+    category: Text Search Query Construction
+    subcategory: Faceted Search
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot and return the count per 'genres' value.
     db_seed:
       - movies:
           indexes:
@@ -66,14 +73,12 @@
                 mappings:
                   dynamic: false
                   fields:
-                    plot:
-                      type: string
                     genres:
                       type: stringFacet
+                    plot:
+                      type: string
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot and return the count per 'genres' value.
   expected:
     reference_answer: |
       aggregate([
@@ -105,13 +110,16 @@
       - Score 1.0 when per-genre counts in $response for matches in the 'movies' collection match the reference query.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
+  origin: null
+- id: 352d00d5-5581-46bc-aa81-1a8582ef04e0
   metadata:
+    name: Date Facets
+    description: date facets for text search query
     category: Text Search Query Construction
     subcategory: Faceted Search
-    name: String Facets
-    description: string facets for text search query
-- id: 352d00d5-5581-46bc-aa81-1a8582ef04e0
   input:
+    prompt: |
+      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and bucket them by decade of their 'released' date.
     db_seed:
       - movies:
           indexes:
@@ -125,8 +133,6 @@
                       type: date
               name: default
               type: search
-    prompt: |
-      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and bucket them by decade of their 'released' date.
   expected:
     reference_answer: |
       aggregate([
@@ -168,8 +174,4 @@
       - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.
       - Reduce the score to 0 if $response is empty.
       - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
-  metadata:
-    category: Text Search Query Construction
-    subcategory: Faceted Search
-    name: Date Facets
-    description: date facets for text search query
+  origin: null
