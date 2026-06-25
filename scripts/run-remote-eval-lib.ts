@@ -134,6 +134,21 @@ export function compileMetadataRegex(spec: string): MetadataRegexFilter {
   }
 }
 
+/**
+ * Parse a `--concurrency` value into a positive integer.
+ * Throws on non-numeric, non-integer, or values < 1.
+ */
+export function parseConcurrency(value: string): number {
+  const trimmed = value.trim();
+  const n = Number(trimmed);
+  if (trimmed === "" || !Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+    throw new Error(
+      `--concurrency must be a positive integer, got: ${value}`,
+    );
+  }
+  return n;
+}
+
 export async function loadRowsFromCaseFiles(
   files: string[],
   datasetDir: string,
@@ -305,6 +320,7 @@ export interface RemoteEvalRequestBody {
   experiment_name?: string;
   project_id?: string;
   stream?: boolean;
+  max_concurrency?: number;
 }
 
 export function buildRemoteEvalRequest(opts: {
@@ -314,6 +330,7 @@ export function buildRemoteEvalRequest(opts: {
   experimentName: string;
   projectId?: string;
   stream?: boolean;
+  maxConcurrency?: number;
 }): RemoteEvalRequestBody {
   const body: RemoteEvalRequestBody = {
     name: opts.evalName,
@@ -324,6 +341,9 @@ export function buildRemoteEvalRequest(opts: {
   };
   if (opts.projectId) {
     body.project_id = opts.projectId;
+  }
+  if (opts.maxConcurrency !== undefined) {
+    body.max_concurrency = opts.maxConcurrency;
   }
   return body;
 }

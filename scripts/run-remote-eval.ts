@@ -18,6 +18,7 @@ import {
   loadRowsFromCaseFilesDetailed,
   mergeEvalParameters,
   parameterKeysForLog,
+  parseConcurrency,
   postEvalHttp,
   compileMetadataRegex,
   resolveCaseFilesFromGlobs,
@@ -47,6 +48,7 @@ interface ParsedCli {
   paramsJson?: string;
   metadataRegex?: string;
   rowIds: string[];
+  concurrency?: number;
   globs: string[];
 }
 
@@ -77,70 +79,88 @@ function parseCli(argv: string[]): ParsedCli {
       i++;
       continue;
     }
-    if (!afterSep && a === "--dry-run") {
-      out.dryRun = true;
+    if (afterSep || !a.startsWith("--")) {
+      out.globs.push(a);
       i++;
       continue;
     }
-    if (!afterSep && a === "--remote") {
-      out.remote = argv[++i] ?? die("--remote requires a URL");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--eval") {
-      out.evalName = argv[++i] ?? die("--eval requires a name");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--dataset-dir") {
-      out.datasetDir = argv[++i] ?? die("--dataset-dir requires a path");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--experiment") {
-      out.experimentName = argv[++i] ?? die("--experiment requires a name");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--project-id") {
-      out.projectId = argv[++i] ?? die("--project-id requires an id");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--output-dir") {
-      out.outputDir = argv[++i] ?? die("--output-dir requires a path");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--skip-traces") {
-      out.skipTraces = true;
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--params") {
-      out.paramsJson = argv[++i] ?? die("--params requires a JSON string");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--metadata-regex") {
-      out.metadataRegex =
-        argv[++i] ?? die("--metadata-regex requires key=<regex>");
-      i++;
-      continue;
-    }
-    if (!afterSep && a === "--row-id") {
-      const value = argv[++i] ?? die("--row-id requires a row id");
-      for (const id of value.split(",").map((s) => s.trim()).filter(Boolean)) {
-        out.rowIds.push(id);
+
+    // Support both `--key value` and `--key=value`.
+    const eq = a.indexOf("=");
+    const flag = eq >= 0 ? a.slice(0, eq) : a;
+    const inlineValue = eq >= 0 ? a.slice(eq + 1) : undefined;
+    let consumedNext = false;
+    const takeValue = (label: string): string => {
+      if (inlineValue !== undefined) {
+        return inlineValue;
       }
-      i++;
-      continue;
+      const next = argv[i + 1];
+      if (next === undefined) {
+        die(`${flag} requires ${label}`);
+      }
+      consumedNext = true;
+      return next;
+    };
+    const expectNoValue = (): void => {
+      if (inlineValue !== undefined) {
+        die(`${flag} does not take a value`);
+      }
+    };
+
+    switch (flag) {
+      case "--dry-run":
+        expectNoValue();
+        out.dryRun = true;
+        break;
+      case "--skip-traces":
+        expectNoValue();
+        out.skipTraces = true;
+        break;
+      case "--remote":
+        out.remote = takeValue("a URL");
+        break;
+      case "--eval":
+        out.evalName = takeValue("a name");
+        break;
+      case "--dataset-dir":
+        out.datasetDir = takeValue("a path");
+        break;
+      case "--experiment":
+        out.experimentName = takeValue("a name");
+        break;
+      case "--project-id":
+        out.projectId = takeValue("an id");
+        break;
+      case "--output-dir":
+        out.outputDir = takeValue("a path");
+        break;
+      case "--params":
+        out.paramsJson = takeValue("a JSON string");
+        break;
+      case "--metadata-regex":
+        out.metadataRegex = takeValue("key=<regex>");
+        break;
+      case "--row-id": {
+        const value = takeValue("a row id");
+        for (const id of value.split(",").map((s) => s.trim()).filter(Boolean)) {
+          out.rowIds.push(id);
+        }
+        break;
+      }
+      case "--concurrency": {
+        const value = takeValue("a positive integer");
+        try {
+          out.concurrency = parseConcurrency(value);
+        } catch (e) {
+          die(e instanceof Error ? e.message : String(e));
+        }
+        break;
+      }
+      default:
+        die(`Unknown flag: ${flag}`);
     }
-    if (!afterSep && a.startsWith("--")) {
-      die(`Unknown flag: ${a}`);
-    }
-    out.globs.push(a);
-    i++;
+
+    i += consumedNext ? 2 : 1;
   }
 
   return out;
@@ -170,7 +190,8 @@ async function main(): Promise<void> {
     die(
       "Usage: pnpm eval:remote [flags] [glob...]\n" +
         "       pnpm eval:remote [flags] -- <glob> [glob...]\n" +
-        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --metadata-regex key=<regex> --row-id ID (repeatable, comma-separated) --output-dir DIR --skip-traces --dry-run",
+        "Flags accept `--key value` or `--key=value`.\n" +
+        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --metadata-regex key=<regex> --row-id ID (repeatable, comma-separated) --concurrency N (default 10 on dev server; or EVAL_MAX_CONCURRENCY) --output-dir DIR --skip-traces --dry-run",
     );
   }
 
@@ -204,6 +225,21 @@ async function main(): Promise<void> {
     cli.rowIds.length > 0 ? new Set(cli.rowIds) : undefined;
   if (rowIdFilter) {
     log(`Row id filter (${rowIdFilter.size}): ${[...rowIdFilter].join(", ")}`);
+  }
+
+  let concurrency = cli.concurrency;
+  if (concurrency === undefined) {
+    const envConcurrency = process.env.EVAL_MAX_CONCURRENCY?.trim();
+    if (envConcurrency) {
+      try {
+        concurrency = parseConcurrency(envConcurrency);
+      } catch {
+        die("EVAL_MAX_CONCURRENCY must be a positive integer");
+      }
+    }
+  }
+  if (concurrency !== undefined) {
+    log(`Max concurrency: ${concurrency}`);
   }
 
   const { rows, sources } = await loadRowsFromCaseFilesDetailed(
@@ -318,6 +354,7 @@ async function main(): Promise<void> {
     experimentName: cli.experimentName,
     projectId,
     stream: true,
+    maxConcurrency: concurrency,
   });
 
   const totalRows = rows.length;

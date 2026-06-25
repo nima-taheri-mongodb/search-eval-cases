@@ -18,6 +18,7 @@ import {
   loadRowsFromCaseFiles,
   loadRowsFromCaseFilesDetailed,
   mergeEvalParameters,
+  parseConcurrency,
   parseSseEvents,
   resolveCaseFilesFromGlobs,
   rowMatchesIdFilter,
@@ -303,6 +304,40 @@ describe("buildRemoteEvalRequest", () => {
     });
     assert.equal(body.project_id, undefined);
     assert.equal(body.stream, false);
+  });
+
+  it("omits max_concurrency when not provided", () => {
+    const body = buildRemoteEvalRequest({
+      evalName: "e",
+      rows: [],
+      parameters: {},
+      experimentName: "exp",
+    });
+    assert.equal("max_concurrency" in body, false);
+  });
+
+  it("includes max_concurrency when provided", () => {
+    const body = buildRemoteEvalRequest({
+      evalName: "e",
+      rows: [],
+      parameters: {},
+      experimentName: "exp",
+      maxConcurrency: 4,
+    });
+    assert.equal(body.max_concurrency, 4);
+  });
+});
+
+describe("parseConcurrency", () => {
+  it("parses a positive integer", () => {
+    assert.equal(parseConcurrency("5"), 5);
+    assert.equal(parseConcurrency("  12 "), 12);
+  });
+
+  it("rejects zero, negatives, non-integers, and non-numeric", () => {
+    for (const bad of ["0", "-1", "1.5", "abc", "", "  ", "1e3.2"]) {
+      assert.throws(() => parseConcurrency(bad), /positive integer/);
+    }
   });
 });
 
