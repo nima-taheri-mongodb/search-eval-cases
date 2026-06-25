@@ -49,13 +49,16 @@
         }
       ])
     llm_judge: |
-      ### Success criterion
+      # Success criterion
       For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response reports the same per-decade counts as executing $reference_answer on the 'movies' collection:
+         a. If a search index on the 'movies' collection was NOT used in $conversation to fetch the results, set score = 0.2.
+         b. Else if facet functionality was NOT used in $conversation to produce per-decade buckets in $response, set score = 0.8.
+         c. Else (both search index and facet used), set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: c895852c-4737-407a-b430-f012f156d758
   metadata:
@@ -103,13 +106,16 @@
         }
       ])
     llm_judge: |
-      ### Success criterion
+      # Success criterion
       For text search matches in the 'movies' collection, $response reports the same number of movies per genre as the reference facet query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when per-genre counts in $response for matches in the 'movies' collection match the reference query.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response reports the same per-genre counts as executing $reference_answer on the 'movies' collection:
+         a. If a search index on the 'movies' collection was NOT used in $conversation to fetch the results, set score = 0.2.
+         b. Else if facet functionality was NOT used in $conversation to produce per-genre counts in $response, set score = 0.8.
+         c. Else (both search index and facet used), set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 352d00d5-5581-46bc-aa81-1a8582ef04e0
   metadata:
@@ -167,11 +173,14 @@
         }
       ])
     llm_judge: |
-      ### Success criterion
+      # Success criterion
       For text search matches in the 'movies' collection, $response reports the same number of movies per decade as the reference facet query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when per-decade counts in $response for matches in the 'movies' collection match the reference query.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2 if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response reports the same per-decade counts as executing $reference_answer on the 'movies' collection:
+         a. If a search index on the 'movies' collection was NOT used in $conversation to fetch the results, set score = 0.2.
+         b. Else if facet functionality was NOT used in $conversation to produce per-decade buckets in $response, set score = 0.8.
+         c. Else (both search index and facet used), set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null

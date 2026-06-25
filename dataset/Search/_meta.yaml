@@ -117,4 +117,4 @@ dataset:
               This helps human reviewers understand the expected answer, and can also be used by the LLM judge by referencing $reference_answer in the LLM judge prompt.
         description: Expected outcome for a case, expressed as LLM-judge criteria.
         additionalProperties: false
-      updated_at: 2026-06-24T23:23:20.000Z
+      updated_at: 2026-06-25T03:32:38.174Z

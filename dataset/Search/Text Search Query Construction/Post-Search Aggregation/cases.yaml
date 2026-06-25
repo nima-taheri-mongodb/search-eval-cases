@@ -16,11 +16,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      $response lists the same movies from the 'movies' collection as the reference query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -37,11 +33,16 @@
           }
         }
       ])
+    llm_judge: |
+      # Success criterion
+      $response lists the same movies from the 'movies' collection as the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when $response matches the reference query results from the 'movies' collection.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response lists the same movies as executing $reference_answer on the 'movies' collection would yield:
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 40bc4cc4-ded1-4f7f-8964-faf2a52c2056
   metadata:
@@ -61,11 +62,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      $response returns both the total match count and the titles from a single aggregation on the 'movies' collection matching the reference query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -83,11 +80,16 @@
           }
         }
       ])
+    llm_judge: |
+      # Success criterion
+      $response returns both the total match count and the titles from a single aggregation on the 'movies' collection matching the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when $response includes both the correct total count and title list from the reference query on the 'movies' collection.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response includes both the total match count and the title list that executing $reference_answer on the 'movies' collection would yield:
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 22aca9d4-3217-4733-aeef-6cbf63302037
   metadata:
@@ -107,11 +109,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      $response yields one row per cast member for each matched movie in the 'movies' collection.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -126,11 +124,16 @@
           $unwind: "$cast"
         }
       ])
+    llm_judge: |
+      # Success criterion
+      $response yields one row per cast member for each movie in the 'movies' collection matched by the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when $response matches the reference query on the 'movies' collection (one document per cast member).
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response yields one document per cast member, matching what executing $reference_answer on the 'movies' collection would yield:
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 560be07c-ee14-40a8-a0bd-7fdcc277530f
   metadata:
@@ -150,11 +153,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      For text search matches in the 'movies' collection, $response reports the same per-bucket counts as the reference query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -174,11 +173,16 @@
           }
         }
       ])
+    llm_judge: |
+      # Success criterion
+      For text search matches in the 'movies' collection, $response reports the same per-bucket counts as the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when per-bucket counts in $response for matches in the 'movies' collection match the reference query.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response reports the same per-bucket counts as executing $reference_answer on the 'movies' collection:
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: eaf7107a-fc10-424c-9dea-b652e1c2622b
   metadata:
@@ -198,11 +202,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      For text search matches in the 'movies' collection, $response reports the same per-director counts (sorted descending) as the reference query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -217,11 +217,16 @@
           $sortByCount: "$director"
         }
       ])
+    llm_judge: |
+      # Success criterion
+      For text search matches in the 'movies' collection, $response reports the same per-director counts (sorted descending) as the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when per-director counts and sort order in $response for matches in the 'movies' collection match the reference query.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response reports the same per-director counts (sorted descending) as executing $reference_answer on the 'movies' collection:
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 6e2c1981-cfe4-439d-94ce-e80459149a43
   metadata:
@@ -241,11 +246,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      Each matched movie from the 'movies' collection in $response includes a 'filmography' array of movies sharing its director.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -265,11 +266,16 @@
           }
         }
       ])
+    llm_judge: |
+      # Success criterion
+      Each matched movie from the 'movies' collection in $response includes a 'filmography' array of movies sharing its director, matching the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when $response matches the reference query on the 'movies' collection (each match has the correct 'filmography' array).
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response matches what executing $reference_answer on the 'movies' collection would yield (each match has the correct 'filmography' array):
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 2370f91f-528e-4b0d-adf8-80a4057b831f
   metadata:
@@ -289,11 +295,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      $response promotes a '{ title, rating }' sub-document to the root for each matched movie in the 'movies' collection.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -308,11 +310,16 @@
           $replaceWith: { title: "$title", rating: "$rating" }
         }
       ])
+    llm_judge: |
+      # Success criterion
+      $response promotes a '{ title, rating }' sub-document to the root for each movie in the 'movies' collection matched by the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when $response matches the reference query on the 'movies' collection (root documents contain only 'title' and 'rating').
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response matches what executing $reference_answer on the 'movies' collection would yield (root documents contain only 'title' and 'rating'):
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 0fe57592-b121-45ec-a02e-8ff1a4da9ed9
   metadata:
@@ -332,11 +339,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      A 'family_movies' collection exists containing the same movies from the 'movies' collection as the reference query.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -348,11 +351,16 @@
           }
         }
       ])
+    llm_judge: |
+      # Success criterion
+      A 'family_movies' collection exists containing the same movies from the 'movies' collection as the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when 'family_movies' exists and contains the same documents from the 'movies' collection as the reference query.
-      - Reduce the score to 0 if the 'family_movies' collection is missing or empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to produce the results.
+      # Scoring rubric:
+      1. If the 'family_movies' collection is missing or empty, set score = 0.
+      2. If the 'family_movies' collection contains the same documents as executing $reference_answer on the 'movies' collection would yield:
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
 - id: 0f9a6381-e3b4-4dd7-b6cf-0f305c3b3f7c
   metadata:
@@ -372,11 +380,7 @@
               name: default
               type: search
   expected:
-    llm_judge: |
-      ### Success criterion
-      $response contains at most 2 movies from the 'movies' collection, each drawn from the reference query result set.
-
-      ### Reference query
+    reference_answer: |
       aggregate([
         {
           $search: {
@@ -388,9 +392,14 @@
           }
         }
       ])
+    llm_judge: |
+      # Success criterion
+      $response contains at most 2 movies from the 'movies' collection, each drawn from the result set of the reference query $reference_answer.
 
-      ### Scoring
-      - Score 1.0 when $response contains at most 2 movies from the 'movies' collection and every returned movie appears in the reference query results.
-      - Reduce the score to 0 if $response is empty.
-      - Multiply the score by 0.2x if no search index on the 'movies' collection was used in $conversation to fetch the results.
+      # Scoring rubric:
+      1. If $response is empty, set score = 0.
+      2. If $response contains at most 2 movies from the 'movies' collection and every returned movie appears in the result set of $reference_answer:
+         a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
   origin: null
