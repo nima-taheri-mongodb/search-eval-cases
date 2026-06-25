@@ -34,20 +34,20 @@
           "description": "Stable record id (UUID). Used to upsert by id. Omit to let Braintrust assign one."
         },
         "input": {
-          "$ref": "https://mongodb-eval-cases/schemas/input.schema.json",
+          "$ref": "https://github.com/mongodb-js/mongodb-mcp-server/tests/eval/schemas/input.schema.json",
           "description": "The case input handed to the evaluation task (generated from mongodb-mcp-server eval types)."
         },
         "expected": {
           "description": "The expected result / grading criteria for this case.",
           "anyOf": [
             { "type": "null" },
-            { "$ref": "https://mongodb-eval-cases/schemas/expected.schema.json" }
+            { "$ref": "https://github.com/mongodb-js/mongodb-mcp-server/tests/eval/schemas/expected.schema.json" }
           ]
         },
         "metadata": {
           "description": "Per-case taxonomy metadata and Braintrust row metadata.",
           "anyOf": [
-            { "$ref": "https://mongodb-eval-cases/schemas/metadata.schema.json" },
+            { "$ref": "https://github.com/mongodb-js/mongodb-mcp-server/tests/eval/schemas/metadata.schema.json" },
             { "type": "null" }
           ]
         },

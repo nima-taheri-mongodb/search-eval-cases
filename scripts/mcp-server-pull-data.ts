@@ -5,7 +5,6 @@
  * 1. Copy every file under `tests/eval/dbSeed/` → `dbseed/` (same basenames).
  * 2. Run `pnpm eval:generate-schemas` in the MCP server repo, then copy
  *    `tests/eval/dist/input.schema.json` and `expected.schema.json` into `schemas/`,
- *    and apply eval-cases patches (`$id`, optional `example` on expected).
  *
  * Set `MONGODB_MCP_SERVER_ROOT` to the absolute path of mongodb-mcp-server if it is
  * not at `~/mongodb-mcp-server`.
@@ -63,43 +62,14 @@ function runGenerateSchemas(): void {
     die("`pnpm eval:generate-schemas` failed (see output above).");
   }
 }
-
-function patchInputSchema(raw: string): string {
-  const obj = JSON.parse(raw) as Record<string, unknown>;
-  obj.$id = "https://mongodb-eval-cases/schemas/input.schema.json";
-  return JSON.stringify(obj, null, 4) + "\n";
-}
-
-function patchExpectedSchema(raw: string): string {
-  const obj = JSON.parse(raw) as Record<string, unknown>;
-  obj.$id = "https://mongodb-eval-cases/schemas/expected.schema.json";
-  const props = { ...((obj.properties as Record<string, unknown>) ?? {}) };
-  if (!props.example) {
-    props.example = {
-      type: "string",
-      description:
-        "Optional illustrative command or answer that would satisfy the judge.",
-    };
-  }
-  obj.properties = props;
-  return JSON.stringify(obj, null, 4) + "\n";
-}
-
-function patchMetadataSchema(raw: string): string {
-  const obj = JSON.parse(raw) as Record<string, unknown>;
-  obj.$id = "https://mongodb-eval-cases/schemas/metadata.schema.json";
-  return JSON.stringify(obj, null, 4) + "\n";
-}
-
 interface GeneratedSchema {
   file: string;
-  patch: (raw: string) => string;
 }
 
 const GENERATED_SCHEMAS: GeneratedSchema[] = [
-  { file: "input.schema.json", patch: patchInputSchema },
-  { file: "expected.schema.json", patch: patchExpectedSchema },
-  { file: "metadata.schema.json", patch: patchMetadataSchema },
+  { file: "input.schema.json" },
+  { file: "expected.schema.json" },
+  { file: "metadata.schema.json" },
 ];
 
 function copyGeneratedSchemas(): void {
@@ -115,8 +85,8 @@ function copyGeneratedSchemas(): void {
     );
   }
   mkdirSync(SCHEMAS_DIR, { recursive: true });
-  for (const { src, out, patch } of sources) {
-    writeFileSync(out, patch(readFileSync(src, "utf8")), "utf8");
+  for (const { src, out } of sources) {
+    writeFileSync(out, readFileSync(src, "utf8"));
     console.log(`Wrote ${path.relative(REPO_ROOT, out)}`);
   }
 }

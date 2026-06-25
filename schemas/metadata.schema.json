@@ -1,4 +1,5 @@
 {
+    "$id": "https://github.com/mongodb-js/mongodb-mcp-server/tests/eval/schemas/metadata.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
@@ -32,6 +33,5 @@
         "description"
     ],
     "additionalProperties": false,
-    "description": "Metadata for a single MongoDB agent eval case.",
-    "$id": "https://mongodb-eval-cases/schemas/metadata.schema.json"
+    "description": "Metadata for a single MongoDB agent eval case."
 }

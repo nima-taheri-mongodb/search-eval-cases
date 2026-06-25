@@ -1,9 +1,10 @@
 {
+    "$id": "https://github.com/mongodb-js/mongodb-mcp-server/tests/eval/schemas/expected.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
         "llm_judge": {
-            "description": "Provide a prompt for the LLM judge to evaluate and make assertions about:\n- the state of the database after the assistant completes the prompt. The judge may use any available read-only MCP tools to check and validate these assertions.\n- Use $response to retrieve the assistant’s response for this eval case.\n- Use $conversation to access the full conversation history including tool calls and tool results for this eval case.\n- Use $reference_answer to obtain the reference answer for this eval case as specified in \"expected.reference_answer\" field.",
+            "description": "Provide a prompt for the LLM judge to evaluate and make assertions about:\n- the state of the database after the assistant completes the prompt. The judge may use any available read-only MCP tools to check and validate these assertions.\n- if prompt references $response, the assistant’s response for this eval case will be made available for evaluation.\n- if prompt references $conversation, the full conversation history, including tool calls and tool results for this eval case, will be accessible for evaluation.\n- if prompt references $reference_answer, the reference answer as specified in the \"expected.reference_answer\" field will be made available for evaluation.\n",
             "anyOf": [
                 {
                     "type": "string"
@@ -11,15 +12,10 @@
             ]
         },
         "reference_answer": {
-            "description": "The reference answer for the eval case.\nThis helps human reviewers understand the expected answer, and can also be used by the LLM judge by referencing $reference_answer in the LLM judge prompt.",
+            "description": "The reference answer for the eval case. This provides human reviewers with a clear example of the expected answer.\n                If the LLM judge prompt references $reference_answer, this value will be made available to the judge for automated evaluation.",
             "type": "string"
-        },
-        "example": {
-            "type": "string",
-            "description": "Optional illustrative command or answer that would satisfy the judge."
         }
     },
     "additionalProperties": false,
-    "description": "Expected outcome for a case, expressed as LLM-judge criteria.",
-    "$id": "https://mongodb-eval-cases/schemas/expected.schema.json"
+    "description": "Expected outcome for a case, expressed as LLM-judge criteria."
 }
