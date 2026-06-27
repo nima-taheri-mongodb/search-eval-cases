@@ -5,8 +5,7 @@
     category: Text Search Index Management
     subcategory: Index Lifecycle
   input:
-    prompt: |
-      Remove 'movies_fts_index' search index
+    prompt: Remove 'movies_fts_index' search index
     db_seed:
       - movies:
           indexes:

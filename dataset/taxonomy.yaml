@@ -2,74 +2,34 @@ taxonomy:
   - dataset=Search:
       - category=Text Search Index Management:
           - subcategory=Index Creation:
-              - Dynamic Mapping Mode: dynamic mapping mode for text search index creation
-              - Configurable Dynamic TypeSets: configurable dynamic type sets for text search index creation
-              - Field Type Definitions: field type definitions for text search index creation
-              - Index-Time Analyzer: index-time analyzer for text search index creation
-              - Search-Time Analyzer: search-time analyzer for text search index creation
-              - Built-in Analyzers: built-in analyzers for text search index creation
-              - Custom Analyzer: custom analyzer for text search index creation
-              - Multi Analyzer: multi analyzer for text search index creation
-              - Token Type Normalizer: token type normalizer for text search index creation
-              - Synonym Source Mappings: synonym source mappings for text search index creation
-              - Facet-Type Field Mappings: facet-type field mappings for text search index creation
-              - Multi-Field Definitions: multi-field definitions for text search index creation
-              - Stored Source Configuration: stored source configuration for text search index creation
               - Index Partitioning: index partitioning for text search index creation
+              - Stored Source Configuration: stored source configuration for text search index creation
+              - Multi-Field Definitions: multi-field definitions for text search index creation
+              - Facet-Type Field Mappings: facet-type field mappings for text search index creation
+              - Synonym Source Mappings: synonym source mappings for text search index creation
+              - Token Type Normalizer: token type normalizer for text search index creation
+              - Multi Analyzer: multi analyzer for text search index creation
+              - Custom Analyzer: custom analyzer for text search index creation
+              - Built-in Analyzers: built-in analyzers for text search index creation
+              - Search-Time Analyzer: search-time analyzer for text search index creation
+              - Index-Time Analyzer: index-time analyzer for text search index creation
+              - Field Type Definitions: field type definitions for text search index creation
+              - Configurable Dynamic TypeSets: configurable dynamic type sets for text search index creation
+              - Dynamic Mapping Mode: dynamic mapping mode for text search index creation
           - subcategory=Index Lifecycle:
               - Index Deletion: index deletion for text search index creation
       - category=Text Search Query Construction:
           - subcategory=Faceted Search:
+              - Date Facets: date facets for text search query
               - String Facets: string facets for text search query
               - Number Facets: number facets for text search query
-              - Date Facets: date facets for text search query
           - subcategory=Post-Search Aggregation:
+              - Random Sample: random sample for text search query
+              - Materialize Results: materialize results for text search query
+              - Promote Embedded Document: promote embedded document for text search query
+              - Join with Other Collections: join with other collections for text search query
+              - Shorthand Frequency Count: shorthand frequency count for text search query
+              - Bucket into Ranges: bucket into ranges for text search query
+              - Flatten Arrays: flatten arrays for text search query
               - Parallel Sub-Pipelines: parallel sub-pipelines for text search query
               - Aggregate Search Results: aggregate search results for text search query
-              - Flatten Arrays: flatten arrays for text search query
-              - Bucket into Ranges: bucket into ranges for text search query
-              - Shorthand Frequency Count: shorthand frequency count for text search query
-              - Join with Other Collections: join with other collections for text search query
-              - Promote Embedded Document: promote embedded document for text search query
-              - Materialize Results: materialize results for text search query
-              - Random Sample: random sample for text search query
-      - category=Hybrid Search:
-          - subcategory=Rank Fusion:
-              - Basic Reciprocal Rank Fusion: basic reciprocal rank fusion for hybrid search
-              - RRF with Weighted Pipelines: RRF with weighted pipelines for hybrid search
-              - RRF with Score Details: RRF with score details for hybrid search
-              - Multi-Field Multi-Pipeline: multi-field multi-pipeline rank fusion for hybrid search
-          - subcategory=Score Fusion:
-              - Sigmoid Normalization: score fusion with sigmoid normalization for hybrid search
-              - MinMax Normalization: score fusion with minmax scaler normalization for hybrid search
-              - Expression Combination: score fusion with a custom combination expression for hybrid search
-              - Weighted Average Combination: score fusion with weighted average combination for hybrid search
-              - No Normalization: score fusion without normalization for hybrid search
-          - subcategory=Reranking:
-              - Rerank after Vector Search: rerank after vector search for hybrid search
-              - Rerank after Rank Fusion: rerank after rank fusion for hybrid search
-              - Retrieve Fuse Rerank Chain: full retrieve-fuse-rerank chain for hybrid search
-              - Rerank Top-N of Candidates: rerank to return the top n of a larger candidate set for hybrid search
-          - subcategory=Sub-Pipeline Construction:
-              - Named Pipeline Map: named sub-pipeline map structure for hybrid search
-              - Match Filter Sub-Pipeline: match filter sub-pipeline for hybrid search
-              - Sort Sub-Pipeline: sort sub-pipeline for hybrid search
-              - GeoNear Sub-Pipeline: geonear sub-pipeline for hybrid search
-              - Skip and Limit Sub-Pipeline: skip and limit sub-pipeline for hybrid search
-              - Disallowed Project in Sub-Pipeline: rejecting a project stage inside a sub-pipeline for hybrid search
-          - subcategory=Result Shaping:
-              - Limit after Fusion: limit stage after the fusion stage for hybrid search
-              - Unset Embedding Fields: unset embedding fields after fusion for hybrid search
-              - Post-Filter after Fusion: post-filter after fusion for hybrid search
-          - subcategory=Index Prerequisites:
-              - Dual Search and Vector Index: requiring both a search and a vector index for hybrid search
-              - AutoEmbed Hybrid Index: auto-embed and search index for hybrid search
-          - subcategory=Intent Recognition:
-              - Explicit Hybrid Search Request: explicit hybrid search request for hybrid search
-              - Combine Keyword and Semantic: combining keyword and semantic retrieval for hybrid search
-              - Exact and Semantic Both Matter: exact and semantic relevance both matter for hybrid search
-              - Fusion over UnionWith: preferring fusion over unionWith for combining searches for hybrid search
-              - Reorder vs Neural Rerank: distinguishing a score reorder from a neural rerank for hybrid search
-              - Hybrid vs Pure Lexical: hybrid vs pure lexical for hybrid search
-              - Hybrid vs Pure Vector: hybrid vs pure vector for hybrid search
-              - Debug Worse Hybrid Results: debugging worse hybrid results for hybrid search

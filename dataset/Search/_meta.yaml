@@ -8,7 +8,7 @@ dataset:
   metadata:
     __schemas:
       input:
-        $id: https://mongodb-eval-cases/schemas/input.schema.json
+        $id: https://github.com/mongodb-js/mongodb-mcp-server/tests/eval/schemas/input.schema.json
         type: object
         $schema: https://json-schema.org/draft/2020-12/schema
         required:
@@ -94,27 +94,23 @@ dataset:
         description: Input for a single MongoDB agent eval case.
         additionalProperties: false
       expected:
-        $id: https://mongodb-eval-cases/schemas/expected.schema.json
+        $id: https://github.com/mongodb-js/mongodb-mcp-server/tests/eval/schemas/expected.schema.json
         type: object
         $schema: https://json-schema.org/draft/2020-12/schema
         properties:
-          example:
-            type: string
-            description: Optional illustrative command or answer that would satisfy the judge.
           llm_judge:
-            anyOf:
-              - type: string
-            description: |-
+            type: string
+            description: |
               Provide a prompt for the LLM judge to evaluate and make assertions about:
               - the state of the database after the assistant completes the prompt. The judge may use any available read-only MCP tools to check and validate these assertions.
-              - Use $response to retrieve the assistant’s response for this eval case.
-              - Use $conversation to access the full conversation history including tool calls and tool results for this eval case.
-              - Use $reference_answer to obtain the reference answer for this eval case as specified in "expected.reference_answer" field.
+              - if prompt references $response, the assistant's response for this eval case will be made available for evaluation.
+              - if prompt references $conversation, the full conversation history, including tool calls and tool results for this eval case, will be accessible for evaluation.
+              - if prompt references $reference_answer, the reference answer as specified in the "expected.reference_answer" field will be made available for evaluation.
           reference_answer:
             type: string
             description: |-
-              The reference answer for the eval case.
-              This helps human reviewers understand the expected answer, and can also be used by the LLM judge by referencing $reference_answer in the LLM judge prompt.
+              The reference answer for the eval case. This provides human reviewers with a clear example of the expected answer.
+                              If the LLM judge prompt references $reference_answer, this value will be made available to the judge for automated evaluation.
         description: Expected outcome for a case, expressed as LLM-judge criteria.
         additionalProperties: false
-      updated_at: 2026-06-25T03:32:38.174Z
+      updated_at: 2026-06-27T22:07:34.732Z

@@ -12,6 +12,7 @@ import {
   readCaseRowsFile,
   rowExistsRemotely,
   writeCaseRowsFile,
+  writeGroupedRows,
 } from "./datasets-layout.ts";
 import type { DatasetRow } from "./datasets-lib.ts";
 import type { CaseRow } from "./taxonomy-lib.ts";
@@ -167,6 +168,107 @@ describe("pruneLocalToRemote", () => {
       assert.deepEqual(result.deletedFiles, []);
       assert.deepEqual(result.deletedDatasets, []);
       assert.equal(existsSync(file), true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("writeGroupedRows", () => {
+  it("keeps distinct-id rows that share a metadata.name in the same file", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "group-dup-"));
+    try {
+      const written = await writeGroupedRows(
+        [
+          remoteRow("id1", "Index Deletion"),
+          remoteRow("id2", "Index Deletion"),
+        ],
+        dir,
+        "DatasetA",
+      );
+
+      assert.equal(written.length, 1);
+      const rows = await readCaseRowsFile(written[0]!);
+      assert.deepEqual(rows.map((r) => r.id).sort(), ["id1", "id2"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("updates an existing row in place when ids match", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "group-update-"));
+    try {
+      const file = path.join(dir, "DatasetA", "cases.yaml");
+      await writeCaseRowsFile(file, [localCase("id1", "alpha")]);
+
+      await writeGroupedRows(
+        [remoteRow("id1", "alpha-renamed")],
+        dir,
+        "DatasetA",
+      );
+
+      const rows = await readCaseRowsFile(file);
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0]?.id, "id1");
+      assert.equal(
+        (rows[0]?.metadata as { name?: string } | undefined)?.name,
+        "alpha-renamed",
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not collide an id-bearing remote row with a different-id local row of the same name", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "group-nocollide-"));
+    try {
+      const file = path.join(dir, "DatasetA", "cases.yaml");
+      await writeCaseRowsFile(file, [localCase("id1", "Index Deletion")]);
+
+      await writeGroupedRows(
+        [remoteRow("id2", "Index Deletion")],
+        dir,
+        "DatasetA",
+      );
+
+      const rows = await readCaseRowsFile(file);
+      assert.deepEqual(rows.map((r) => r.id).sort(), ["id1", "id2"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to name matching when the incoming row has no id", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "group-noid-"));
+    try {
+      const file = path.join(dir, "DatasetA", "cases.yaml");
+      await writeCaseRowsFile(file, [localCase("id1", "alpha")]);
+
+      await writeGroupedRows([remoteRow(undefined, "alpha")], dir, "DatasetA");
+
+      const rows = await readCaseRowsFile(file);
+      assert.equal(rows.length, 1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("merges an id-bearing remote row into a matching id-less local stub", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "group-stub-"));
+    try {
+      const file = path.join(dir, "DatasetA", "cases.yaml");
+      await writeCaseRowsFile(file, [
+        {
+          input: { prompt: "x" },
+          metadata: { name: "alpha", description: "" },
+        } as CaseRow,
+      ]);
+
+      await writeGroupedRows([remoteRow("id1", "alpha")], dir, "DatasetA");
+
+      const rows = await readCaseRowsFile(file);
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0]?.id, "id1");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -1,12 +1,12 @@
-- id: ba050af8-c74e-4dd6-b1b9-c223716e5394
+- id: de12fd0c-1083-42db-9a9e-111200ee6f14
   metadata:
-    name: Dynamic Mapping Mode
-    description: dynamic mapping mode for text search index creation
+    name: Index Partitioning
+    description: index partitioning for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a text search index on 'movies' collection with its field mapping being dynamic.
+      Create a dynamic text search index on the 'movies' collection that partitions the index into 2 partitions.
     db_seed:
       - movies
   expected:
@@ -16,26 +16,27 @@
         definition: {
           mappings: {
             dynamic: true
-          }
+          },
+          numPartitions: 2
         }
       })
     llm_judge: |
-      # Success criterion
-      A search index exists on 'movies' collection that uses dynamic mapping.
+      # Success criterion (edit)
+      A search index exists on the 'movies' collection that is partitioned into 2 sub-indexes.
 
       # Scoring
-      - Score 1.0 when a search index exists on 'movies' collection with `mappings.dynamic` set to `true`.
+      - Score 1.0 when a search index exists on the 'movies' collection with `numPartitions` set to `2`.
       - Score 0 otherwise.
   origin: null
-- id: ece3ef3a-b0d9-4513-aded-81b282cb4a3e
+- id: 2f1095f0-493d-4361-bb43-eb8a058c46dc
   metadata:
-    name: Configurable Dynamic TypeSets
-    description: configurable dynamic type sets for text search index creation
+    name: Stored Source Configuration
+    description: stored source configuration for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a text search index on 'movies' collection that uses configurable dynamic mapping such that only string and number fields are automatically indexed via a named type set.
+      Create a dynamic text search index on the 'movies' collection that stores only the 'title' and 'genres' fields on the search nodes via stored source.
     db_seed:
       - movies
   expected:
@@ -44,34 +45,130 @@
         type: "search",
         definition: {
           mappings: {
-            dynamic: { typeSet: "stringsAndNumbers" }
+            dynamic: true
           },
-          typeSets: [
+          storedSource: { include: ["title", "genres"] }
+        }
+      })
+    llm_judge: |
+      # Success criterion
+      A search index exists on the 'movies' collection that stores only `title` and `genres` via `storedSource`.
+
+      # Scoring
+      - Score 1.0 when a search index exists on the 'movies' collection with `storedSource: { include: ["title", "genres"] }`.
+      - Score 0 otherwise.
+  origin: null
+- id: 90463af3-7bfe-4888-8c79-b1a490a142ed
+  metadata:
+    name: Multi-Field Definitions
+    description: multi-field definitions for text search index creation
+    category: Text Search Index Management
+    subcategory: Index Creation
+  input:
+    prompt: |
+      Create a text search index on the 'movies' collection that indexes the 'title' field both as a searchable string and as an autocomplete field by giving it multiple type definitions.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      createSearchIndexes({
+        type: "search",
+        definition: {
+          mappings: {
+            dynamic: false,
+            fields: {
+              title: [{ type: "string" }, { type: "autocomplete" }]
+            }
+          }
+        }
+      })
+    llm_judge: |
+      # Success criterion
+      A search index exists on the 'movies' collection that maps `title` with multiple field definitions: both `string` and `autocomplete`.
+
+      # Scoring
+      - Score 1.0 when a search index exists on the 'movies' collection where `title` is mapped as an array including both `string` and `autocomplete` types.
+      - Score 0 otherwise.
+  origin: null
+- id: 35ff8049-8f9a-4d6f-8ef9-d184d546ed05
+  metadata:
+    name: Facet-Type Field Mappings
+    description: facet-type field mappings for text search index creation
+    category: Text Search Index Management
+    subcategory: Index Creation
+  input:
+    prompt: |
+      Create a text search index on the 'movies' collection that supports faceting: index 'genres' as a string facet, and 'release_year' as a number facet.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      createSearchIndexes({
+        type: "search",
+        definition: {
+          mappings: {
+            dynamic: false,
+            fields: {
+              genres: { type: "stringFacet" },
+              release_year: { type: "numberFacet" }
+            }
+          }
+        }
+      })
+    llm_judge: |
+      # Success criterion
+      A search index exists on the 'movies' collection that enables faceting on `genres` and `release_year`.
+
+      # Scoring
+      - Score 1.0 if the 'movies' collection has a search index that includes field mappings for `genres` as `stringFacet` and `release_year` as `numberFacet`.
+      - Score 0 otherwise.
+  origin: null
+- id: c2dc7dbb-bce5-4efc-8370-a3b5843af187
+  metadata:
+    name: Synonym Source Mappings
+    description: synonym source mappings for text search index creation
+    category: Text Search Index Management
+    subcategory: Index Creation
+  input:
+    prompt: |
+      Create a dynamic text search index on the 'movies' collection with a synonyms mapping named 'plotSynonyms' sourced from the 'synonyms' collection, analyzed with lucene.english.
+    db_seed:
+      - movies
+      - synonyms
+  expected:
+    reference_answer: |
+      createSearchIndexes({
+        type: "search",
+        definition: {
+          mappings: {
+            dynamic: true
+          },
+          synonyms: [
             {
-              name: "stringsAndNumbers",
-              types: [{ type: "string" }, { type: "number" }]
+              name: "plotSynonyms",
+              source: { collection: "synonyms" },
+              analyzer: "lucene.english"
             }
           ]
         }
       })
     llm_judge: |
       # Success criterion
-      A search index exists on 'movies' collection that uses configurable dynamic mapping that restricts auto-indexing to string and number types via a named type set.
+      A search index exists on the 'movies' collection that registers a synonym mapping named `plotSynonyms` sourced from the 'synonyms' collection.
 
       # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection with `mappings.dynamic` referencing a `typeSet` and a `typeSets` array that restricts indexing to `string` and `number` types.
-      - Score 0.75 when a search index exists on the 'movies' collection with all `string` and `number` fields are indexed explicitly instead of through typeSets.
+      - Score 1.0 if the 'movies' collection has a search index that includes a synonym mapping with its source set to the 'synonyms' collection and the analyzer set to "lucene.english". 
       - Score 0 otherwise.
   origin: null
-- id: f8e1e1fa-808d-4ce8-8d01-9546e14f20c2
+- id: b4c5a048-6e76-478b-980a-b646b877bf38
   metadata:
-    name: Field Type Definitions
-    description: field type definitions for text search index creation
+    name: Token Type Normalizer
+    description: token type normalizer for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a static text search index on the 'movies' collection that maps 'plot' as a string, 'release_year' as a number, and 'genres' as a string.
+      Create a text search index on the 'movies' collection that maps 'genres' as a 'token' type field with a lowercase normalizer so the values can be used for sorting and exact matching.
     db_seed:
       - movies
   expected:
@@ -82,30 +179,28 @@
           mappings: {
             dynamic: false,
             fields: {
-              plot: { type: "string" },
-              release_year: { type: "number" },
-              genres: { type: "string" }
+              genres: { type: "token", normalizer: "lowercase" }
             }
           }
         }
       })
     llm_judge: |
       # Success criterion
-      A search index exists on the 'movies' collection that declares explicit per-field types for `plot`, `release_year`, and `genres`.
+      A search index exists on the 'movies' collection that maps `genres` as a `token` field with a lowercase normalizer.
 
       # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection mapping `plot` as `string`, `release_year` as `number`, and `genres` as `string`.
+      - Score 1.0 when a search index exists on the 'movies' collection where `genres` is mapped as type `token` with normalizer `lowercase`.
       - Score 0 otherwise.
   origin: null
-- id: 1cf7f82b-642b-4ac0-a3ba-5c8cc4efdd60
+- id: aff039d2-8c47-4e15-8710-40ca47eb98fc
   metadata:
-    name: Index-Time Analyzer
-    description: index-time analyzer for text search index creation
+    name: Multi Analyzer
+    description: multi analyzer for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a text search index on the 'movies' collection for the 'plot' field that uses the 'lucene.english' analyzer at index time.
+      Create a text search index on the 'movies' collection for the 'title' field that indexes it with the standard analyzer and additionally provides an alternate ('multi') analysis of the same field using the 'lucene.english' analyzer.
     db_seed:
       - movies
   expected:
@@ -116,83 +211,23 @@
           mappings: {
             dynamic: false,
             fields: {
-              plot: { type: "string", analyzer: "lucene.english" }
+              title: {
+                type: "string",
+                analyzer: "lucene.standard",
+                multi: {
+                  english: { type: "string", analyzer: "lucene.english" }
+                }
+              }
             }
           }
         }
       })
     llm_judge: |
       # Success criterion
-      A search index exists on the 'movies' collection that applies the `lucene.english` analyzer to the `plot` field at index time.
+      A search index exists on the 'movies' collection where `title` declares a `multi` analyzer variant alongside its main analyzer.
 
       # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection where the `plot` field uses analyzer `lucene.english`.
-      - Score 0 otherwise.
-  origin: null
-- id: 96dd2642-7b64-4bc1-bcbb-a0b95e948be8
-  metadata:
-    name: Search-Time Analyzer
-    description: search-time analyzer for text search index creation
-    category: Text Search Index Management
-    subcategory: Index Creation
-  input:
-    prompt: |
-      Create a text search index on the 'movies' collection for the 'plot' field that indexes with the standard analyzer but applies the 'lucene.english' analyzer at query (search) time.
-    db_seed:
-      - movies
-  expected:
-    reference_answer: |
-      createSearchIndexes({
-        type: "search",
-        definition: {
-          mappings: {
-            dynamic: false,
-            fields: {
-              plot: { type: "string", analyzer: "lucene.standard", searchAnalyzer: "lucene.english" }
-            }
-          }
-        }
-      })
-    llm_judge: |
-      # Success criterion
-      A search index exists on the 'movies' collection that applies `lucene.standard` at index time and `lucene.english` at query time on the `plot` field.
-
-      # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection where the `plot` field defines `searchAnalyzer: "lucene.english"`.
-      - Score 0 otherwise.
-  origin: null
-- id: 48d06b03-1640-4cf2-afe2-24c9b0f14ce7
-  metadata:
-    name: Built-in Analyzers
-    description: built-in analyzers for text search index creation
-    category: Text Search Index Management
-    subcategory: Index Creation
-  input:
-    prompt: |
-      Create a text search index on the 'movies' collection that applies MongoDB's built-in Lucene analyzers: index 'title' with 'lucene.keyword' and 'plot' with 'lucene.english'.
-    db_seed:
-      - movies
-  expected:
-    reference_answer: |
-      createSearchIndexes({
-        type: "search",
-        definition: {
-          mappings: {
-            dynamic: false,
-            fields: {
-              title: { type: "string", analyzer: "lucene.keyword" },
-              plot: { type: "string", analyzer: "lucene.english" }
-            }
-          }
-        }
-      })
-    llm_judge: |
-      # Success criterion
-      A search index exists on the 'movies' collection that uses built-in Lucene analyzers on both `title` and `plot`.
-
-      # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection with `lucene.keyword` on `title` and `lucene.english` on `plot`.
-      - Score 0.5 when an index exists on the 'movies' collection but only one of the two analyzer assignments is correct.
+      - Score 1.0 when a search index exists on the 'movies' collection where the `title` field declares a `multi` analyzer (e.g. an `english` variant using `lucene.english`) alongside its main analyzer which is `lucene.standard`.
       - Score 0 otherwise.
   origin: null
 - id: b78d473d-6f5b-4e97-9f51-adecff21a924
@@ -235,15 +270,15 @@
       - Score 1.0 when a search index exists on the 'movies' collection with an `analyzers` array containing a custom analyzer (standard tokenizer + lowercase token filter) applied to `plot`.
       - Score 0 otherwise.
   origin: null
-- id: aff039d2-8c47-4e15-8710-40ca47eb98fc
+- id: 48d06b03-1640-4cf2-afe2-24c9b0f14ce7
   metadata:
-    name: Multi Analyzer
-    description: multi analyzer for text search index creation
+    name: Built-in Analyzers
+    description: built-in analyzers for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a text search index on the 'movies' collection for the 'title' field that indexes it with the standard analyzer and additionally provides an alternate ('multi') analysis of the same field using the 'lucene.english' analyzer.
+      Create a text search index on the 'movies' collection that applies MongoDB's built-in Lucene analyzers: index 'title' with 'lucene.keyword' and 'plot' with 'lucene.english'.
     db_seed:
       - movies
   expected:
@@ -254,34 +289,30 @@
           mappings: {
             dynamic: false,
             fields: {
-              title: {
-                type: "string",
-                analyzer: "lucene.standard",
-                multi: {
-                  english: { type: "string", analyzer: "lucene.english" }
-                }
-              }
+              title: { type: "string", analyzer: "lucene.keyword" },
+              plot: { type: "string", analyzer: "lucene.english" }
             }
           }
         }
       })
     llm_judge: |
       # Success criterion
-      A search index exists on the 'movies' collection where `title` declares a `multi` analyzer variant alongside its main analyzer.
+      A search index exists on the 'movies' collection that uses built-in Lucene analyzers on both `title` and `plot`.
 
       # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection where the `title` field declares a `multi` analyzer (e.g. an `english` variant using `lucene.english`) alongside its main analyzer which is `lucene.standard`.
+      - Score 1.0 when a search index exists on the 'movies' collection with `lucene.keyword` on `title` and `lucene.english` on `plot`.
+      - Score 0.5 when an index exists on the 'movies' collection but only one of the two analyzer assignments is correct.
       - Score 0 otherwise.
   origin: null
-- id: b4c5a048-6e76-478b-980a-b646b877bf38
+- id: 96dd2642-7b64-4bc1-bcbb-a0b95e948be8
   metadata:
-    name: Token Type Normalizer
-    description: token type normalizer for text search index creation
+    name: Search-Time Analyzer
+    description: search-time analyzer for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a text search index on the 'movies' collection that maps 'genres' as a 'token' type field with a lowercase normalizer so the values can be used for sorting and exact matching.
+      Create a text search index on the 'movies' collection for the 'plot' field that indexes with the standard analyzer but applies the 'lucene.english' analyzer at query (search) time.
     db_seed:
       - movies
   expected:
@@ -292,130 +323,130 @@
           mappings: {
             dynamic: false,
             fields: {
-              genres: { type: "token", normalizer: "lowercase" }
+              plot: { type: "string", analyzer: "lucene.standard", searchAnalyzer: "lucene.english" }
             }
           }
         }
       })
     llm_judge: |
       # Success criterion
-      A search index exists on the 'movies' collection that maps `genres` as a `token` field with a lowercase normalizer.
+      A search index exists on the 'movies' collection that applies `lucene.standard` at index time and `lucene.english` at query time on the `plot` field.
 
       # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection where `genres` is mapped as type `token` with normalizer `lowercase`.
+      - Score 1.0 when a search index exists on the 'movies' collection where the `plot` field defines `searchAnalyzer: "lucene.english"`.
       - Score 0 otherwise.
   origin: null
-- id: c2dc7dbb-bce5-4efc-8370-a3b5843af187
+- id: 1cf7f82b-642b-4ac0-a3ba-5c8cc4efdd60
   metadata:
-    name: Synonym Source Mappings
-    description: synonym source mappings for text search index creation
+    name: Index-Time Analyzer
+    description: index-time analyzer for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a dynamic text search index on the 'movies' collection with a synonyms mapping named 'plotSynonyms' sourced from the 'synonyms' collection, analyzed with lucene.english.
+      Create a text search index on the 'movies' collection for the 'plot' field that uses the 'lucene.english' analyzer at index time.
     db_seed:
       - movies
-      - synonyms
   expected:
     reference_answer: |
       createSearchIndexes({
         type: "search",
         definition: {
           mappings: {
-            dynamic: true
+            dynamic: false,
+            fields: {
+              plot: { type: "string", analyzer: "lucene.english" }
+            }
+          }
+        }
+      })
+    llm_judge: |
+      # Success criterion
+      A search index exists on the 'movies' collection that applies the `lucene.english` analyzer to the `plot` field at index time.
+
+      # Scoring
+      - Score 1.0 when a search index exists on the 'movies' collection where the `plot` field uses analyzer `lucene.english`.
+      - Score 0 otherwise.
+  origin: null
+- id: f8e1e1fa-808d-4ce8-8d01-9546e14f20c2
+  metadata:
+    name: Field Type Definitions
+    description: field type definitions for text search index creation
+    category: Text Search Index Management
+    subcategory: Index Creation
+  input:
+    prompt: |
+      Create a static text search index on the 'movies' collection that maps 'plot' as a string, 'release_year' as a number, and 'genres' as a string.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      createSearchIndexes({
+        type: "search",
+        definition: {
+          mappings: {
+            dynamic: false,
+            fields: {
+              plot: { type: "string" },
+              release_year: { type: "number" },
+              genres: { type: "string" }
+            }
+          }
+        }
+      })
+    llm_judge: |
+      # Success criterion
+      A search index exists on the 'movies' collection that declares explicit per-field types for `plot`, `release_year`, and `genres`.
+
+      # Scoring
+      - Score 1.0 when a search index exists on the 'movies' collection mapping `plot` as `string`, `release_year` as `number`, and `genres` as `string`.
+      - Score 0 otherwise.
+  origin: null
+- id: ece3ef3a-b0d9-4513-aded-81b282cb4a3e
+  metadata:
+    name: Configurable Dynamic TypeSets
+    description: configurable dynamic type sets for text search index creation
+    category: Text Search Index Management
+    subcategory: Index Creation
+  input:
+    prompt: |
+      Create a text search index on 'movies' collection that uses configurable dynamic mapping such that only string and number fields are automatically indexed via a named type set.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      createSearchIndexes({
+        type: "search",
+        definition: {
+          mappings: {
+            dynamic: { typeSet: "stringsAndNumbers" }
           },
-          synonyms: [
+          typeSets: [
             {
-              name: "plotSynonyms",
-              source: { collection: "synonyms" },
-              analyzer: "lucene.english"
+              name: "stringsAndNumbers",
+              types: [{ type: "string" }, { type: "number" }]
             }
           ]
         }
       })
     llm_judge: |
       # Success criterion
-      A search index exists on the 'movies' collection that registers a synonym mapping named `plotSynonyms` sourced from the 'synonyms' collection.
+      A search index exists on 'movies' collection that uses configurable dynamic mapping that restricts auto-indexing to string and number types via a named type set.
 
       # Scoring
-      - Score 1.0 if the 'movies' collection has a search index that includes a synonym mapping with its source set to the 'synonyms' collection and the analyzer set to "lucene.english". 
+      - Score 1.0 when a search index exists on the 'movies' collection with `mappings.dynamic` referencing a `typeSet` and a `typeSets` array that restricts indexing to `string` and `number` types.
+      - Score 0.75 when a search index exists on the 'movies' collection with all `string` and `number` fields are indexed explicitly instead of through typeSets.
       - Score 0 otherwise.
   origin: null
-- id: 35ff8049-8f9a-4d6f-8ef9-d184d546ed05
+- id: ba050af8-c74e-4dd6-b1b9-c223716e5394
   metadata:
-    name: Facet-Type Field Mappings
-    description: facet-type field mappings for text search index creation
+    name: Dynamic Mapping Mode
+    description: dynamic mapping mode for text search index creation
     category: Text Search Index Management
     subcategory: Index Creation
   input:
     prompt: |
-      Create a text search index on the 'movies' collection that supports faceting: index 'genres' as a string facet, and 'release_year' as a number facet.
-    db_seed:
-      - movies
-  expected:
-    reference_answer: |
-      createSearchIndexes({
-        type: "search",
-        definition: {
-          mappings: {
-            dynamic: false,
-            fields: {
-              genres: { type: "stringFacet" },
-              release_year: { type: "numberFacet" }
-            }
-          }
-        }
-      })
-    llm_judge: |
-      # Success criterion
-      A search index exists on the 'movies' collection that enables faceting on `genres` and `release_year`.
-
-      # Scoring
-      - Score 1.0 if the 'movies' collection has a search index that includes field mappings for `genres` as `stringFacet` and `release_year` as `numberFacet`.
-      - Score 0 otherwise.
-  origin: null
-- id: 90463af3-7bfe-4888-8c79-b1a490a142ed
-  metadata:
-    name: Multi-Field Definitions
-    description: multi-field definitions for text search index creation
-    category: Text Search Index Management
-    subcategory: Index Creation
-  input:
-    prompt: |
-      Create a text search index on the 'movies' collection that indexes the 'title' field both as a searchable string and as an autocomplete field by giving it multiple type definitions.
-    db_seed:
-      - movies
-  expected:
-    reference_answer: |
-      createSearchIndexes({
-        type: "search",
-        definition: {
-          mappings: {
-            dynamic: false,
-            fields: {
-              title: [{ type: "string" }, { type: "autocomplete" }]
-            }
-          }
-        }
-      })
-    llm_judge: |
-      # Success criterion
-      A search index exists on the 'movies' collection that maps `title` with multiple field definitions: both `string` and `autocomplete`.
-
-      # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection where `title` is mapped as an array including both `string` and `autocomplete` types.
-      - Score 0 otherwise.
-  origin: null
-- id: 2f1095f0-493d-4361-bb43-eb8a058c46dc
-  metadata:
-    name: Stored Source Configuration
-    description: stored source configuration for text search index creation
-    category: Text Search Index Management
-    subcategory: Index Creation
-  input:
-    prompt: |
-      Create a dynamic text search index on the 'movies' collection that stores only the 'title' and 'genres' fields on the search nodes via stored source.
+      Create a text search index on 'movies' collection with its field mapping being dynamic.
     db_seed:
       - movies
   expected:
@@ -425,45 +456,14 @@
         definition: {
           mappings: {
             dynamic: true
-          },
-          storedSource: { include: ["title", "genres"] }
+          }
         }
       })
     llm_judge: |
       # Success criterion
-      A search index exists on the 'movies' collection that stores only `title` and `genres` via `storedSource`.
+      A search index exists on 'movies' collection that uses dynamic mapping.
 
       # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection with `storedSource: { include: ["title", "genres"] }`.
-      - Score 0 otherwise.
-  origin: null
-- id: de12fd0c-1083-42db-9a9e-111200ee6f14
-  metadata:
-    name: Index Partitioning
-    description: index partitioning for text search index creation
-    category: Text Search Index Management
-    subcategory: Index Creation
-  input:
-    prompt: |
-      Create a dynamic text search index on the 'movies' collection that partitions the index into 2 partitions.
-    db_seed:
-      - movies
-  expected:
-    reference_answer: |
-      createSearchIndexes({
-        type: "search",
-        definition: {
-          mappings: {
-            dynamic: true
-          },
-          numPartitions: 2
-        }
-      })
-    llm_judge: |
-      # Success criterion
-      A search index exists on the 'movies' collection that is partitioned into 2 sub-indexes.
-
-      # Scoring
-      - Score 1.0 when a search index exists on the 'movies' collection with `numPartitions` set to `2`.
+      - Score 1.0 when a search index exists on 'movies' collection with `mappings.dynamic` set to `true`.
       - Score 0 otherwise.
   origin: null

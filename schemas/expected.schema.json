@@ -4,12 +4,8 @@
     "type": "object",
     "properties": {
         "llm_judge": {
-            "description": "Provide a prompt for the LLM judge to evaluate and make assertions about:\n- the state of the database after the assistant completes the prompt. The judge may use any available read-only MCP tools to check and validate these assertions.\n- if prompt references $response, the assistant’s response for this eval case will be made available for evaluation.\n- if prompt references $conversation, the full conversation history, including tool calls and tool results for this eval case, will be accessible for evaluation.\n- if prompt references $reference_answer, the reference answer as specified in the \"expected.reference_answer\" field will be made available for evaluation.\n",
-            "anyOf": [
-                {
-                    "type": "string"
-                }
-            ]
+            "description": "Provide a prompt for the LLM judge to evaluate and make assertions about:\n- the state of the database after the assistant completes the prompt. The judge may use any available read-only MCP tools to check and validate these assertions.\n- if prompt references $response, the assistant's response for this eval case will be made available for evaluation.\n- if prompt references $conversation, the full conversation history, including tool calls and tool results for this eval case, will be accessible for evaluation.\n- if prompt references $reference_answer, the reference answer as specified in the \"expected.reference_answer\" field will be made available for evaluation.\n",
+            "type": "string"
         },
         "reference_answer": {
             "description": "The reference answer for the eval case. This provides human reviewers with a clear example of the expected answer.\n                If the LLM judge prompt references $reference_answer, this value will be made available to the judge for automated evaluation.",

@@ -318,10 +318,13 @@ export async function writeGroupedRows(
       if (!incomingMeta) {
         continue;
       }
-      const incomingKey = incoming.id ?? rowMatchKey(datasetName, incomingMeta);
       const idx = merged.findIndex((row) => {
-        if (incoming.id && row.id === incoming.id) {
-          return true;
+        // When both rows carry ids, identity is the id alone: distinct ids are
+        // distinct rows even if they share a metadata.name (e.g. two remote
+        // rows for the same taxonomy leaf). Only fall back to name matching when
+        // an id is absent on either side (e.g. an unsynced local stub).
+        if (incoming.id && row.id) {
+          return row.id === incoming.id;
         }
         const meta = getCaseMetadata(row);
         return meta ? meta.name === incomingMeta.name : false;
@@ -331,7 +334,6 @@ export async function writeGroupedRows(
       } else {
         merged.push(enriched);
       }
-      void incomingKey;
     }
 
     await writeCaseRowsFile(filePath, merged);
