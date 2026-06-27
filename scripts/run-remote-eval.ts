@@ -36,6 +36,55 @@ const DEFAULT_DATASET_DIR = "dataset";
 
 const log = (msg: string) => console.log(`[eval:remote] ${msg}`);
 
+const USAGE = `Run Braintrust eval cases against a local \`bt eval\` dev server.
+
+Usage:
+  pnpm eval:remote [flags] [glob...]
+  pnpm eval:remote [flags] -- <glob> [glob...]
+
+Globs resolve to cases.yaml files under the dataset dir; their rows are merged
+and POSTed to the dev server's /eval endpoint. Flags accept \`--key value\` or
+\`--key=value\`. Use \`--\` to stop flag parsing (everything after is a glob).
+
+Flags:
+  -h, --help              Show this help and exit.
+  --dry-run               Resolve files/rows and print the plan; skip all HTTP
+                          (no BRAINTRUST_API_KEY needed).
+  --skip-traces           Don't fetch/write full experiment traces after the run.
+  --remote URL            Dev server base URL (default ${DEFAULT_REMOTE};
+                          or EVAL_REMOTE_URL).
+  --eval NAME             Evaluator name registered on the dev server
+                          (default ${DEFAULT_EVAL_NAME}).
+  --dataset-dir DIR       Root dir for resolving globs (default ${DEFAULT_DATASET_DIR}).
+  --experiment NAME       Experiment name (default: timestamped).
+  --project-id ID         Braintrust project id (else inferred from _meta.yaml).
+  --params JSON           Eval parameters as a JSON object (merged over
+                          BT_EVAL_PARAMS_JSON).
+  --metadata-regex k=<re> Keep only rows whose metadata key matches the regex
+                          (or METADATA_REGEX).
+  --row-id ID             Keep only the given row id(s); repeatable and
+                          comma-separated.
+  --concurrency N         Max concurrent cases (default 10 on dev server;
+                          or EVAL_MAX_CONCURRENCY).
+  --output-dir DIR        Where to write traces (default output).
+
+Environment:
+  BRAINTRUST_API_KEY      Required unless --dry-run.
+  BRAINTRUST_APP_URL      Override Braintrust app URL.
+  EVAL_REMOTE_URL         Default for --remote.
+  EVAL_MAX_CONCURRENCY    Default for --concurrency.
+  METADATA_REGEX          Default for --metadata-regex.
+  BT_EVAL_PARAMS_JSON     Base eval parameters (merged under --params).
+
+Examples:
+  pnpm eval:remote --dry-run -- "Search/**/Faceted Search/cases.yaml"
+  pnpm eval:remote --row-id abc123,def456 -- "Search/**/cases.yaml"
+  pnpm eval:remote --concurrency 4 --experiment my-run -- "Search/**/cases.yaml"`;
+
+function printHelp(): void {
+  console.log(USAGE);
+}
+
 interface ParsedCli {
   remote: string;
   evalName: string;
@@ -78,6 +127,10 @@ function parseCli(argv: string[]): ParsedCli {
       afterSep = true;
       i++;
       continue;
+    }
+    if (!afterSep && (a === "--help" || a === "-h")) {
+      printHelp();
+      process.exit(0);
     }
     if (afterSep || !a.startsWith("--")) {
       out.globs.push(a);
@@ -187,12 +240,7 @@ async function main(): Promise<void> {
   const cli = parseCli(argv);
 
   if (cli.globs.length === 0) {
-    die(
-      "Usage: pnpm eval:remote [flags] [glob...]\n" +
-        "       pnpm eval:remote [flags] -- <glob> [glob...]\n" +
-        "Flags accept `--key value` or `--key=value`.\n" +
-        "Flags: --remote URL --eval NAME --dataset-dir DIR --experiment NAME --project-id ID --params JSON --metadata-regex key=<regex> --row-id ID (repeatable, comma-separated) --concurrency N (default 10 on dev server; or EVAL_MAX_CONCURRENCY) --output-dir DIR --skip-traces --dry-run",
-    );
+    die("no glob patterns provided. Run `pnpm eval:remote --help` for usage.");
   }
 
   log(`Remote dev server: ${cli.remote}`);
