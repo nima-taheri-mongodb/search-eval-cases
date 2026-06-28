@@ -1,0 +1,503 @@
+- id: bf62a4e9-0d41-4001-a04f-8040904d1265
+  metadata:
+    name: Explicit Hybrid Search Request
+    description: explicit hybrid search request for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, perform a hybrid search over the 'plot' field for movies about 'a vampire seduces and romances someone', and return the top 8 results.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "a vampire seduces and romances someone" },
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "a vampire seduces and romances someone", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response answers the explicit "hybrid search" request by fusing a semantic and a keyword pipeline into a single ranked result set, as the reference query $reference_answer.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. NOTE: fusion ordering depends on per-sub-pipeline numCandidates/limit that the prompt does not specify — do NOT require exact parameter values or exact result ordering; do NOT score on result-set overlap or ordering with $reference_answer (fusion result tails legitimately vary with the unspecified numCandidates/limit). Judge only whether the pipeline is structurally correct and searches the requested topic.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If $conversation built a single native fusion stage ($rankFusion or $scoreFusion) as the first stage, combining both a semantic ($vectorSearch) and a keyword ($search) pipeline:
+         a. If the search query text used is unrelated to the requested topic, or $response is empty — regardless of result-set overlap with the vampire-romance movies $reference_answer returns), set score = 0.7.
+         b. Else (a single fused hybrid query returning on-topic movies relevant to the requested topic), set score = 1.0.
+      3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. a single-modality search or a $unionWith merge), set score = 0.2.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: ddde2d31-1ba5-46ee-bb71-480550c101d8
+  metadata:
+    name: Combine Keyword and Semantic
+    description: combining keyword and semantic retrieval for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, find movies about 'aliens coming to earth' in the 'plot' field by combining a full-text keyword search and a vector semantic search, and merge them into one ranked list of the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "aliens coming to earth" },
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "aliens coming to earth", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response combines keyword and semantic retrieval into one ranked list using a fusion stage (rather than a $unionWith merge), as the reference query $reference_answer.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. NOTE: fusion ordering depends on per-sub-pipeline numCandidates/limit that the prompt does not specify — do NOT require exact parameter values or exact result ordering; do NOT score on result-set overlap or ordering with $reference_answer (fusion result tails legitimately vary with the unspecified numCandidates/limit). Judge only whether the pipeline is structurally correct and searches the requested topic.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If $conversation built a single native fusion stage ($rankFusion or $scoreFusion) as the first stage, combining both a semantic ($vectorSearch) and a keyword ($search) pipeline:
+         a. If the search query text used is unrelated to the requested topic, or $response is empty — regardless of result-set overlap with the alien movies $reference_answer returns), set score = 0.7.
+         b. Else (combined via a single fusion stage, returning on-topic movies relevant to the requested topic), set score = 1.0.
+      3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. merged with $unionWith plus $group/dedup, or a single-modality query), set score = 0.2.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: 0fe5e659-d464-41ba-b26b-371421d7baf7
+  metadata:
+    name: Exact and Semantic Both Matter
+    description: exact and semantic relevance both matter for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, find movies about 'a contract killer' in the 'plot' field where exact keyword precision and semantic relevance matter equally. Return the top 8 movies.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "a contract killer" },
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "a contract killer", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response recognizes that both exact keyword precision and semantic relevance matter and answers with a fused hybrid query weighting both equally, as the reference query $reference_answer.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. NOTE: fusion ordering depends on per-sub-pipeline numCandidates/limit that the prompt does not specify — do NOT require exact parameter values or exact result ordering; do NOT score on result-set overlap or ordering with $reference_answer (fusion result tails legitimately vary with the unspecified numCandidates/limit). Judge only whether the pipeline is structurally correct and searches the requested topic.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If $conversation built a single native fusion stage ($rankFusion or $scoreFusion) as the first stage, combining both a semantic ($vectorSearch) and a keyword ($search) pipeline:
+         a. If the search query text used is unrelated to the requested topic, or $response is empty — regardless of result-set overlap with the contract-killer movies $reference_answer returns), set score = 0.7.
+         b. Else (a single fused hybrid query combining both modalities, returning on-topic movies relevant to the requested topic), set score = 1.0.
+      3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. a single-modality search or a $unionWith merge), set score = 0.2.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: 86248aba-b036-4c92-ad30-de95b10854b9
+  metadata:
+    name: Fusion over UnionWith
+    description: preferring fusion over unionWith for combining searches for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, run a text search and a vector search over the 'plot' field for movies about 'an undead outbreak' and combine them into a single relevance-ranked list where movies strong in both searches rank highest. Return the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "an undead outbreak" },
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "an undead outbreak", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response combines the two searches with reciprocal rank fusion so movies strong in both rank highest, rather than a $unionWith concatenation that only deduplicates, as the reference query $reference_answer.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. NOTE: fusion ordering depends on per-sub-pipeline numCandidates/limit that the prompt does not specify — do NOT require exact parameter values or exact result ordering; do NOT score on result-set overlap or ordering with $reference_answer (fusion result tails legitimately vary with the unspecified numCandidates/limit). Judge only whether the pipeline is structurally correct and searches the requested topic.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If $conversation built a single native fusion stage ($rankFusion or $scoreFusion) as the first stage, combining both a semantic ($vectorSearch) and a keyword ($search) pipeline so movies strong in both rank highest:
+         a. If the search query text used is unrelated to the requested topic, or $response is empty — regardless of result-set overlap with the undead-outbreak movies $reference_answer returns), set score = 0.7.
+         b. Else (combined via a fusion stage so overlap is rewarded, returning on-topic movies relevant to the requested topic), set score = 1.0.
+      3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. combined with $unionWith plus $group/dedup or a manual score sort), set score = 0.2.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: 6cd11d46-3658-4fbb-bf84-2bc3eed2d1ba
+  metadata:
+    name: Reorder vs Neural Rerank
+    description: distinguishing a score reorder from a neural rerank for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, retrieve a broad set of movies semantically similar to 'a deadly virus outbreak or apocalypse' on the 'plot' field, then improve the ordering quality by passing the candidates through a neural reranker. Return the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $vectorSearch: {
+            index: "vector_auto_index",
+            path: "plot",
+            query: { text: "a deadly virus outbreak or apocalypse" },
+            numCandidates: 40,
+            limit: 20
+          }
+        },
+        {
+          $rerank: {
+            query: { text: "a deadly virus outbreak or apocalypse" },
+            path: "plot",
+            numDocsToRerank: 20,
+            model: "rerank-2-lite"
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response retrieves a broad candidate set and improves ordering with a neural $rerank stage, not merely a $sort on a score or metadata field, as the reference query $reference_answer. (Note: $rerank requires MongoDB 8.3+ and may be version-gated; judge the constructed pipeline in $conversation rather than execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never retrieves candidates for the query, set score = 0.
+      2. If $conversation retrieves candidates and then reorders them:
+         a. If the reordering is a plain $sort on a score or metadata field (e.g. searchScore, rating) instead of a $rerank stage, set score = 0.5.
+         b. Else (a neural $rerank stage with query, path, numDocsToRerank, model), set score = 1.0.
+      3. In all other cases, set score = 0.
+      4. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: 5e7bb263-4dd1-41db-a669-861fa35e8770
+  metadata:
+    name: Hybrid vs Pure Lexical
+    description: hybrid vs pure lexical for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, find movies about 'a couple reuniting with a childhood sweetheart' in the 'plot' field, including ones that describe it without those exact words. Return the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "a couple reuniting with a childhood sweetheart" },
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "a couple reuniting with a childhood sweetheart", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response recognizes that pure lexical search is insufficient and adds semantic retrieval via a fused hybrid query, as the reference query $reference_answer.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. NOTE: fusion ordering depends on per-sub-pipeline numCandidates/limit that the prompt does not specify — do NOT require exact parameter values or exact result ordering; do NOT score on result-set overlap or ordering with $reference_answer (fusion result tails legitimately vary with the unspecified numCandidates/limit). Judge only whether the pipeline is structurally correct and searches the requested topic.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If $conversation built a single native fusion stage ($rankFusion or $scoreFusion) as the first stage, combining both a semantic ($vectorSearch) and a keyword ($search) pipeline:
+         a. If the search query text used is unrelated to the requested topic, or $response is empty — regardless of result-set overlap with the reuniting-sweetheart movies $reference_answer returns), set score = 0.7.
+         b. Else (a fused query combining lexical and semantic retrieval, returning on-topic movies relevant to the requested topic), set score = 1.0.
+      3. If $conversation answered with a pure keyword $search only (no semantic pipeline), or otherwise reached results without a native fusion stage combining both modalities, set score = 0.2.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: b33e31b7-099d-4768-8bc8-12d70968cec3
+  metadata:
+    name: Hybrid vs Pure Vector
+    description: hybrid vs pure vector for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, find movies about 'aliens coming to earth' in the 'plot' field, keeping exact keyword matches ranked strongly alongside semantically similar ones. Return the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "aliens coming to earth" },
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "aliens coming to earth", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response recognizes that pure vector search can bury exact keyword matches and adds a lexical pipeline via a fused hybrid query, as the reference query $reference_answer.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. NOTE: fusion ordering depends on per-sub-pipeline numCandidates/limit that the prompt does not specify — do NOT require exact parameter values or exact result ordering; do NOT score on result-set overlap or ordering with $reference_answer (fusion result tails legitimately vary with the unspecified numCandidates/limit). Judge only whether the pipeline is structurally correct and searches the requested topic.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If $conversation built a single native fusion stage ($rankFusion or $scoreFusion) as the first stage, combining both a semantic ($vectorSearch) and a keyword ($search) pipeline:
+         a. If the search query text used is unrelated to the requested topic, or $response is empty — regardless of result-set overlap with the alien movies $reference_answer returns), set score = 0.7.
+         b. Else (a fused query combining semantic and lexical retrieval, returning on-topic movies relevant to the requested topic), set score = 1.0.
+      3. If $conversation answered with a pure $vectorSearch only (no keyword pipeline), or otherwise reached results without a native fusion stage combining both modalities, set score = 0.2.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.

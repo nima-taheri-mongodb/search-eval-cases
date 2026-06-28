@@ -1,0 +1,299 @@
+- id: bf1f9432-97b1-40fb-9bce-09a9a60548d2
+  metadata:
+    name: Rerank after Vector Search
+    description: rerank after vector search for hybrid search
+    category: Hybrid Search
+    subcategory: Reranking
+  input:
+    prompt: |
+      On the 'movies' collection, find movies semantically similar to 'a deadly virus outbreak or apocalypse' on the 'plot' field, then use a neural reranker to reorder the retrieved candidates by relevance to that query before returning the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $vectorSearch: {
+            index: "vector_auto_index",
+            path: "plot",
+            query: { text: "a deadly virus outbreak or apocalypse" },
+            numCandidates: 40,
+            limit: 20
+          }
+        },
+        {
+          $rerank: {
+            query: { text: "a deadly virus outbreak or apocalypse" },
+            path: "plot",
+            numDocsToRerank: 20,
+            model: "rerank-2-lite"
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response retrieves semantically similar movies and then reorders the candidates with a native $rerank stage before returning the top results, as the reference query $reference_answer. (Note: $rerank requires MongoDB 8.3+ and may be version-gated on the eval cluster; judge the constructed pipeline in $conversation rather than execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a pipeline with a $rerank stage following a retrieval stage, set score = 0.
+      2. If $conversation constructs a $vectorSearch retrieval followed by a $rerank stage:
+         a. If the $rerank stage is missing required fields (query, path, numDocsToRerank, model) or is not placed after the retrieval stage, set score = 0.5.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
+      4. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: b33a9698-0c67-4df7-b5da-b9c91203fa80
+  metadata:
+    name: Rerank after Rank Fusion
+    description: rerank after rank fusion for hybrid search
+    category: Hybrid Search
+    subcategory: Reranking
+  input:
+    prompt: |
+      On the 'movies' collection, run a hybrid search over the 'plot' field for movies about 'aliens coming to earth' by fusing semantic and keyword retrieval, then apply a neural reranker to the fused candidates to improve the final ordering. Return the top 8 movies.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "aliens coming to earth" },
+                      numCandidates: 40,
+                      limit: 20
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "aliens coming to earth", path: "plot" }
+                    }
+                  },
+                  { $limit: 20 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 20 },
+        {
+          $rerank: {
+            query: { text: "aliens coming to earth" },
+            path: "plot",
+            numDocsToRerank: 20,
+            model: "rerank-2-lite"
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response fuses a semantic and a keyword pipeline with $rankFusion and then reorders the fused candidates with a native $rerank stage, as the reference query $reference_answer. (Note: $rerank requires MongoDB 8.3+ and may be version-gated; judge the constructed pipeline in $conversation rather than execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a pipeline that combines fusion with a $rerank stage, set score = 0.
+      2. If $conversation constructs a $rankFusion stage followed (after a $limit) by a $rerank stage:
+         a. If either the fusion stage or the $rerank stage is missing or malformed (e.g. $rerank lacks query/path/numDocsToRerank/model, or no fusion is used), set score = 0.5.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
+      4. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: 39e9a26b-a372-484d-a1a4-b0ab3692668e
+  metadata:
+    name: Retrieve Fuse Rerank Chain
+    description: full retrieve-fuse-rerank chain for hybrid search
+    category: Hybrid Search
+    subcategory: Reranking
+  input:
+    prompt: |
+      On the 'movies' collection, perform a hybrid search with reranking over the 'plot' field for movies about 'a contract killer': retrieve with both keyword and semantic search, fuse the two result sets, then rerank the fused candidates with a neural reranker. Return the top 8 movies.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "a contract killer" },
+                      numCandidates: 40,
+                      limit: 20
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "a contract killer", path: "plot" }
+                    }
+                  },
+                  { $limit: 20 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 20 },
+        {
+          $rerank: {
+            query: { text: "a contract killer" },
+            path: "plot",
+            numDocsToRerank: 20,
+            model: "rerank-2-lite"
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response builds the full retrieve -> fuse -> rerank chain for contract-killer movies (keyword + semantic retrieval, $rankFusion, then $rerank), as the reference query $reference_answer. (Note: $rerank requires MongoDB 8.3+ and may be version-gated; judge the constructed pipeline in $conversation rather than execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a pipeline containing both a fusion stage and a $rerank stage, set score = 0.
+      2. If $conversation constructs the chain of retrieval (keyword + semantic) -> $rankFusion -> $rerank:
+         a. If a stage is missing or out of order (e.g. $rerank before fusion, single-modality retrieval, or $rerank lacking query/path/numDocsToRerank/model), set score = 0.5.
+         b. Else (correct retrieve -> fuse -> rerank order), set score = 1.0.
+      3. In all other cases, set score = 0.
+      4. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+- id: 8ef6d265-0938-4dd4-8358-29a20ff02ecf
+  metadata:
+    name: Rerank Top-N of Candidates
+    description: rerank to return the top n of a larger candidate set for hybrid search
+    category: Hybrid Search
+    subcategory: Reranking
+  input:
+    prompt: |
+      On the 'movies' collection, run a hybrid search over the 'plot' field for movies about 'an undead outbreak' that fuses semantic and keyword retrieval into a candidate pool of 50, reranks all 50 candidates with a neural reranker, and returns only the top 10.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "an undead outbreak" },
+                      numCandidates: 50,
+                      limit: 50
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "an undead outbreak", path: "plot" }
+                    }
+                  },
+                  { $limit: 50 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 50 },
+        {
+          $rerank: {
+            query: { text: "an undead outbreak" },
+            path: "plot",
+            numDocsToRerank: 50,
+            model: "rerank-2-lite"
+          }
+        },
+        { $limit: 10 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response fuses semantic and keyword retrieval into a ~50-candidate pool, reranks those candidates with $rerank (numDocsToRerank 50), and returns only the top 10, as the reference query $reference_answer. (Note: $rerank requires MongoDB 8.3+ and may be version-gated; judge the constructed pipeline in $conversation rather than execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a pipeline with a $rerank stage over a fused candidate pool, set score = 0.
+      2. If $conversation fuses retrieval into a larger candidate pool, applies $rerank across that pool, and caps the final output to 10:
+         a. If the candidate pool is not widened before reranking, or numDocsToRerank does not cover the pool, or the final $limit is missing, set score = 0.5.
+         b. Else, set score = 1.0.
+      3. In all other cases, set score = 0.
+      4. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.

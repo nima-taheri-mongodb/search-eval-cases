@@ -6,7 +6,7 @@
     subcategory: Faceted Search
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and bucket them by decade of their 'released' date.
+      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their 'plot' and bucket them by decade of their 'released' date.
     db_seed:
       - movies:
           indexes:
@@ -73,7 +73,7 @@
     subcategory: Faceted Search
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot and return the count per 'genres' value.
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their 'plot' and return the count per 'genres' value.
     db_seed:
       - movies:
           indexes:
@@ -130,7 +130,7 @@
     subcategory: Faceted Search
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and bucket them by decade of their 'release_year'.
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their 'plot' and bucket them by decade of their 'release_year'.
     db_seed:
       - movies:
           indexes:

@@ -1,0 +1,92 @@
+- id: dac6c758-2a73-4872-987d-7e4034aeedd6
+  metadata:
+    name: Dual Search and Vector Index
+    description: requiring both a search and a vector index for hybrid search
+    category: Hybrid Search
+    subcategory: Index Prerequisites
+  input:
+    prompt: |
+      On the 'movies' collection, set up the indexes required to run a hybrid search over the 'plot' field: create both an Atlas Search (text) index and a vector search index on the 1024-dimension 'plot_embedding_voyage_4_lite' field using cosine similarity.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      createSearchIndexes([
+        {
+          name: "default",
+          type: "search",
+          definition: {
+            mappings: { dynamic: true }
+          }
+        },
+        {
+          name: "vector_index",
+          type: "vectorSearch",
+          definition: {
+            fields: [
+              {
+                type: "vector",
+                path: "plot_embedding_voyage_4_lite",
+                numDimensions: 1024,
+                similarity: "cosine"
+              }
+            ]
+          }
+        }
+      ])
+    llm_judge: |
+      # Success criterion
+      Both a search (lexical) index and a vector search index exist on the 'movies' collection so that a hybrid query can fuse $search and $vectorSearch, as the reference definitions $reference_answer.
+
+      # Scoring rubric:
+      1. If neither a search index nor a vector index is created on the 'movies' collection and no valid definitions appear in $response, set score = 0.
+      2. If both a search (text) index and a vector index over 'plot_embedding_voyage_4_lite' (1024 dimensions, cosine) are correctly defined:
+         a. If only one of the two indexes is actually created, or both are only described in $response without being created, set score = 0.5.
+         b. Else (both indexes created on the 'movies' collection), set score = 1.0.
+      3. In all other cases, set score = 0.
+- id: dc870214-c1ae-4ad5-8155-6fcb319946fd
+  metadata:
+    name: AutoEmbed Hybrid Index
+    description: autoembed and search index for hybrid search
+    category: Hybrid Search
+    subcategory: Index Prerequisites
+  input:
+    prompt: |
+      On the 'movies' collection, set up indexes for a hybrid search where embeddings are generated automatically: create an Atlas Search text index plus an auto-embedding vector index that generates embeddings from the 'plot' field using the 'voyage-4-lite' model.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      createSearchIndexes([
+        {
+          name: "default",
+          type: "search",
+          definition: {
+            mappings: { dynamic: true }
+          }
+        },
+        {
+          name: "vector_auto_index",
+          type: "vectorSearch",
+          definition: {
+            fields: [
+              {
+                type: "autoEmbed",
+                path: "plot",
+                model: "voyage-4-lite",
+                modality: "text"
+              }
+            ]
+          }
+        }
+      ])
+    llm_judge: |
+      # Success criterion
+      Both a search (lexical) index and an auto-embedding vector index over the 'plot' field (voyage-4-lite) exist on the 'movies' collection so that a hybrid query can run with natural-language vector queries, as the reference definitions $reference_answer.
+
+      # Scoring rubric:
+      1. If neither a search index nor an auto-embedding vector index is created on the 'movies' collection and no valid definitions appear in $response, set score = 0.
+      2. If both a search (text) index and an auto-embedding vector index that generates embeddings from 'plot' are correctly defined:
+         a. If only one of the two indexes is created, or the vector index uses a raw 'vector' field instead of auto-embedding, or both are only described in $response without being created, set score = 0.5.
+         b. Else (both indexes created, vector index auto-embedding from 'plot'), set score = 1.0.
+      3. In all other cases, set score = 0.

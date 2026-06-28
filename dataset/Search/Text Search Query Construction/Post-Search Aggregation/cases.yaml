@@ -6,7 +6,7 @@
     subcategory: Post-Search Aggregation
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and return a random sample of 2 of them.
+      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their 'plot' and return a random sample of 2 of them.
     db_seed:
       - movies:
           indexes:
@@ -26,15 +26,18 @@
               path: "plot"
             }
           }
+        },
+        {
+          $sample: { size: 2 }
         }
       ])
     llm_judge: |
       # Success criterion
-      $response contains at most 2 movies from the 'movies' collection, each drawn from the result set of the reference query $reference_answer.
+      $response contains at most 2 movies from the 'movies' collection, each drawn from the text-search match set of the reference query $reference_answer (i.e. its $search stage, before the random $sample).
 
       # Scoring rubric:
       1. If $response is empty, set score = 0.
-      2. If $response contains at most 2 movies from the 'movies' collection and every returned movie appears in the result set of $reference_answer:
+      2. If $response contains at most 2 movies from the 'movies' collection and every returned movie appears in the text-search match set of $reference_answer (its $search stage):
          a. If a search index on the 'movies' collection was NOT used in $conversation, set score = 0.2.
          b. Else, set score = 1.0.
       3. In all other cases, set score = 0.
@@ -47,7 +50,7 @@
     subcategory: Post-Search Aggregation
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their plot and save the matching documents into a new collection named 'family_movies'.
+      On the 'movies' collection, find movies with 'father daughter family' (use text search) in their 'plot' and save the matching documents into a new collection named 'family_movies'.
     db_seed:
       - movies:
           indexes:
@@ -67,6 +70,9 @@
               path: "plot"
             }
           }
+        },
+        {
+          $out: "family_movies"
         }
       ])
     llm_judge: |
@@ -88,7 +94,7 @@
     subcategory: Post-Search Aggregation
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. For each, build a sub-document of { title, rating } and promote it to be the top-level document.
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their 'plot'. For each, build a sub-document with the 'title' and 'rating' fields and promote it to be the top-level document.
     db_seed:
       - movies:
           indexes:
@@ -181,7 +187,7 @@
     subcategory: Post-Search Aggregation
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their plot and show how many of them each director has, sorted from most to fewest.
+      On the 'movies' collection, find movies with 'revolution war world' (use text search) in their 'plot' and show how many of them each 'director' has, sorted from most to fewest.
     db_seed:
       - movies:
           indexes:
@@ -274,7 +280,7 @@
     subcategory: Post-Search Aggregation
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their plot and output one document per cast member.
+      On the 'movies' collection, find movies with 'terrorists hostage kill navy' (use text search) in their 'plot' and output one document per 'cast' member.
     db_seed:
       - movies:
           indexes:
@@ -318,7 +324,7 @@
     subcategory: Post-Search Aggregation
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their plot. In a single aggregation pass, return both the total number of matches and the list of their titles.
+      On the 'movies' collection, find movies with 'doctor scientist experiment' (use text search) in their 'plot'. In a single aggregation pass, return both the total number of matches and the list of their 'title' values.
     db_seed:
       - movies:
           indexes:
@@ -365,7 +371,7 @@
     subcategory: Post-Search Aggregation
   input:
     prompt: |
-      On the 'movies' collection, find movies with 'Romance' in their genres and 'marriage wedding sweetheart' (use text search) in their plot.
+      On the 'movies' collection, find movies with 'Romance' in their 'genres' and 'marriage wedding sweetheart' (use text search) in their 'plot'.
     db_seed:
       - movies:
           indexes:
