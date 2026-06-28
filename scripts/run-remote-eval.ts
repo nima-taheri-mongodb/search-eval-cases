@@ -43,8 +43,11 @@ Usage:
   pnpm eval:remote [flags] -- <glob> [glob...]
 
 Globs resolve to cases.yaml files under the dataset dir; their rows are merged
-and POSTed to the dev server's /eval endpoint. Flags accept \`--key value\` or
-\`--key=value\`. Use \`--\` to stop flag parsing (everything after is a glob).
+and POSTed to the dev server's /eval endpoint. A glob prefixed with \`!\` is a
+negation that excludes matching files (at least one non-negated glob is
+required; quote \`!...\` so the shell doesn't expand it). Flags accept
+\`--key value\` or \`--key=value\`. Use \`--\` to stop flag parsing (everything
+after is a glob).
 
 Flags:
   -h, --help              Show this help and exit.
@@ -76,10 +79,11 @@ Environment:
   METADATA_REGEX          Default for --metadata-regex.
   BT_EVAL_PARAMS_JSON     Base eval parameters (merged under --params).
 
-Examples:
-  pnpm eval:remote --dry-run -- "Search/**/Faceted Search/cases.yaml"
-  pnpm eval:remote --row-id abc123,def456 -- "Search/**/cases.yaml"
-  pnpm eval:remote --concurrency 4 --experiment my-run -- "Search/**/cases.yaml"`;
+Examples (globs are relative to the repo root, so include the dataset dir):
+  pnpm eval:remote --dry-run -- "dataset/Search/**/Faceted Search/cases.yaml"
+  pnpm eval:remote --row-id abc123,def456 -- "dataset/Search/**/cases.yaml"
+  pnpm eval:remote --concurrency 4 --experiment my-run -- "dataset/Search/**/cases.yaml"
+  pnpm eval:remote -- "dataset/Search/**/cases.yaml" "!dataset/Search/**/Hybrid Search/**"`;
 
 function printHelp(): void {
   console.log(USAGE);

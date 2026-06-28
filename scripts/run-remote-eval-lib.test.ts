@@ -90,6 +90,62 @@ describe("resolveCaseFilesFromGlobs", () => {
       /At least one glob pattern/,
     );
   });
+
+  it("excludes files matched by a negated (!) pattern", async () => {
+    const all = await resolveCaseFilesFromGlobs(
+      ["dataset/Search/Text Search Index Management/**/cases.yaml"],
+      "dataset",
+      REPO_ROOT,
+    );
+    assert.ok(
+      all.some((f) => f.includes(path.join("Index Creation", "cases.yaml"))),
+      "expected the unfiltered result to include Index Creation",
+    );
+
+    const filtered = await resolveCaseFilesFromGlobs(
+      [
+        "dataset/Search/Text Search Index Management/**/cases.yaml",
+        "!dataset/Search/Text Search Index Management/Index Creation/**",
+      ],
+      "dataset",
+      REPO_ROOT,
+    );
+    assert.ok(filtered.length >= 1);
+    assert.ok(
+      filtered.every(
+        (f) => !f.includes(path.join("Index Creation", "cases.yaml")),
+      ),
+      "expected Index Creation to be excluded by the ! pattern",
+    );
+    assert.ok(filtered.length < all.length);
+  });
+
+  it("throws when only negated patterns are provided", async () => {
+    await assert.rejects(
+      () =>
+        resolveCaseFilesFromGlobs(
+          ["!dataset/Search/**/cases.yaml"],
+          "dataset",
+          REPO_ROOT,
+        ),
+      /At least one non-negated glob pattern/,
+    );
+  });
+
+  it("throws when a negated pattern excludes everything", async () => {
+    await assert.rejects(
+      () =>
+        resolveCaseFilesFromGlobs(
+          [
+            "dataset/Search/Text Search Index Management/Index Creation/**/cases.yaml",
+            "!dataset/Search/Text Search Index Management/**",
+          ],
+          "dataset",
+          REPO_ROOT,
+        ),
+      /No cases.yaml files matched/,
+    );
+  });
 });
 
 describe("rowMatchesMetadataRegex", () => {

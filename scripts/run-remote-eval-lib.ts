@@ -35,6 +35,10 @@ export const isL3CaseFile = isCasesFileForGlob;
 
 /**
  * Expand glob patterns (relative to `cwd`), keep only cases.yaml files under `datasetDir`.
+ *
+ * Patterns prefixed with `!` are negations: any file matched by a `!pattern`
+ * (with the `!` stripped) is excluded from the result, regardless of how many
+ * positive patterns matched it. At least one non-negated pattern is required.
  */
 export async function resolveCaseFilesFromGlobs(
   patterns: string[],
@@ -44,11 +48,39 @@ export async function resolveCaseFilesFromGlobs(
   if (patterns.length === 0) {
     throw new Error("At least one glob pattern is required");
   }
+
+  const positives: string[] = [];
+  const negatives: string[] = [];
+  for (const pattern of patterns) {
+    if (pattern.startsWith("!")) {
+      const stripped = pattern.slice(1);
+      if (stripped.length > 0) {
+        negatives.push(stripped);
+      }
+    } else {
+      positives.push(pattern);
+    }
+  }
+
+  if (positives.length === 0) {
+    throw new Error(
+      "At least one non-negated glob pattern is required (patterns starting with '!' only exclude)",
+    );
+  }
+
   const absDatasetDir = path.resolve(cwd, datasetDir);
+
+  const excluded = new Set<string>();
+  for (const pattern of negatives) {
+    for await (const entry of glob(pattern, { cwd })) {
+      excluded.add(path.normalize(path.resolve(cwd, entry)));
+    }
+  }
+
   const seen = new Set<string>();
   const out: string[] = [];
 
-  for (const pattern of patterns) {
+  for (const pattern of positives) {
     const iter = glob(pattern, { cwd });
     for await (const entry of iter) {
       const abs = path.resolve(cwd, entry);
@@ -56,7 +88,7 @@ export async function resolveCaseFilesFromGlobs(
         continue;
       }
       const key = path.normalize(abs);
-      if (seen.has(key)) {
+      if (excluded.has(key) || seen.has(key)) {
         continue;
       }
       seen.add(key);
