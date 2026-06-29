@@ -132,20 +132,30 @@ The eval task runs in **mongodb-mcp-server**. This repo submits case rows to its
    pnpm eval:remote "dataset/Search/**/Index*.yaml"
    ```
 
-Resolves globs → `cases.yaml` files → merges rows → `GET /list` + streaming `POST /eval` with **inline** row data. Prints the experiment URL early; fetches full traces afterward into `output/<experiment-name>/` (one JSON per row + `_manifest.json`).
+Resolves globs → `cases.yaml` files → merges rows → `GET /list` + streaming `POST /eval` with **inline** row data. Prints the experiment URL early; fetches full traces afterward into `output/<experiment-name>/` (one JSON per row + `_manifest.json`). Run `pnpm eval:remote --help` (`-h`) for the full usage text.
+
+**Globs:** positional or after `--`. A glob prefixed with `!` is a **negation** that excludes matching files (quote it so the shell doesn't expand it); at least one non-negated glob is required.
+
+```bash
+# Everything under Search except Hybrid Search
+pnpm eval:remote -- "dataset/Search/**/cases.yaml" "!dataset/Search/**/Hybrid Search/**"
+```
 
 | Flag / env | Default | Meaning |
 |------------|---------|---------|
+| `-h` / `--help` | — | Print usage and exit |
 | `--remote` / `EVAL_REMOTE_URL` | `http://localhost:8300` | Dev server URL |
 | `--eval` | `mongodb-mcp-server-evals` | Evaluator name (`GET /list`) |
 | `--dataset-dir` | `dataset` | Case YAML root |
 | `--experiment` | timestamped `remote-eval_…` | Experiment name |
 | `--project-id` | from `dataset/*/\_meta.yaml` if unambiguous | Braintrust project id for the run |
-| `--params` / `BT_EVAL_PARAMS_JSON` | — | Task params (`connectionString`, `model`, …) |
+| `--params` / `BT_EVAL_PARAMS_JSON` | — | Task params (`connectionString`, `model`, `judgeModel`, `validateReferenceAnswer`, `systemContext`..); `--params` merges over `BT_EVAL_PARAMS_JSON` |
 | `--metadata-regex` / `METADATA_REGEX` | — | Only run rows whose `metadata[key]` matches the regex; format `key=<regex>` (e.g. `name=Facets`, `category=^Vector`) |
+| `--row-id` | — | Only run the given row id(s); repeatable and comma-separated (e.g. `--row-id abc123,def456`) |
+| `--concurrency` / `EVAL_MAX_CONCURRENCY` | `10` (dev server) | Max concurrent cases (positive integer) |
 | `--output-dir` | `output` | Trace dump directory |
 | `--skip-traces` | off | Skip post-run trace fetch |
-| `--dry-run` | off | List matched files/rows only |
+| `--dry-run` | off | List matched files/rows only (no `BRAINTRUST_API_KEY` needed) |
 | `BRAINTRUST_APP_URL` | — | Optional custom Braintrust app URL |
 
 ---
