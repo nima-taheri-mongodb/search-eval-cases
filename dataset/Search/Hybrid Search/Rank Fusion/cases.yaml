@@ -17,10 +17,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -72,6 +72,7 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. $unionWith + $group, manual score math, or a single-modality $search/$vectorSearch), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: 1c90b5cd-872e-4295-bd91-7d41445dce40
   metadata:
     name: RRF with Weighted Pipelines
@@ -91,10 +92,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -147,6 +148,7 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. $unionWith + $group, manual score math, or a single-modality query), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: 4bfc2ba3-f140-4008-b4c3-548a8dcdd1a3
   metadata:
     name: RRF with Score Details
@@ -166,10 +168,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -224,6 +226,7 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. $unionWith + $group, manual score math, or a single-modality query), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: 139ff830-1596-41ea-a4b4-32a8ff639215
   metadata:
     name: Multi-Field Multi-Pipeline
@@ -243,10 +246,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -308,3 +311,4 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining the pipelines (e.g. $unionWith + $group or a single-modality query), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null

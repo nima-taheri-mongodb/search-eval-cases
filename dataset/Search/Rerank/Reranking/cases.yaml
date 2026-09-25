@@ -1,0 +1,234 @@
+- id: 9c607810-5fe7-4742-97d2-db6c58537a5c
+  metadata:
+    name: Rerank without a Search Index
+    description: rerank over a match and sort pipeline when no search index exists
+    category: Rerank
+    subcategory: Reranking
+  input:
+    prompt: |
+      I want to try reranking on plot for movies about 'a vampire romance' in the 'movies' collection, prioritizing recently released movies. I don't have a search index yet.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      aggregate([
+        { $match: { plot: { $exists: true } } },
+        { $sort: { released: -1 } },
+        {
+          $rerank: {
+            query: { text: "a vampire romance" },
+            path: "plot",
+            numDocsToRerank: 20,
+            model: "rerank-2.5"
+          }
+        },
+        { $project: { _id: 0, title: 1, released: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      $response reranks movies without any search index: candidates are filtered with a $match on the reranked field, ordered by recency with a $sort, then reordered by a native $rerank on the 'plot' text, as in $reference_answer. ($rerank requires MongoDB Atlas 8.3+ and may be version-gated or disabled on the eval cluster; judge the pipeline in $conversation, not execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a pipeline with a $rerank stage, set score = 0.
+      2. If the $rerank stage is not preceded by both a $match (validating the reranked field exists) and a $sort, or the stage is missing required fields (query, path, numDocsToRerank, model), set score = 0.5.
+      3. If the pipeline runs $match, then $sort on 'released' with the most recent first, then $rerank on the 'plot' text, set score = 1.0.
+      4. Efficiency penalty: subtract 0.1 (minimum 0) if an earlier aggregate attempt in $conversation was malformed or structurally wrong and later revised. Retries caused by version-gating or transient errors, and the judge's own execution of $reference_answer, do not count.
+  origin: null
+- id: 24698c60-ad34-4f12-af2e-4ad745f46f8f
+  metadata:
+    name: Rerank after Rank Fusion
+    description: rerank after rank fusion for hybrid search
+    category: Rerank
+    subcategory: Reranking
+  input:
+    prompt: |
+      On the 'movies' collection, run a hybrid search over the 'plot' field for movies about 'aliens coming to earth' by fusing semantic and keyword retrieval, then apply a neural reranker to the fused candidates to improve the final ordering. Return the top 8 movies.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - modality: text
+                    model: voyage-4-lite
+                    path: plot
+                    type: autoEmbed
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "aliens coming to earth" },
+                      numCandidates: 400,
+                      limit: 20
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "aliens coming to earth", path: "plot" }
+                    }
+                  },
+                  { $limit: 20 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 20 },
+        {
+          $rerank: {
+            query: { text: "aliens coming to earth" },
+            path: "plot",
+            numDocsToRerank: 20,
+            model: "rerank-2.5"
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response fuses a semantic and a keyword pipeline with $rankFusion and then reorders the fused candidates with a native $rerank stage, as the reference query $reference_answer. (Note: $rerank requires MongoDB Atlas 8.3+ and may be version-gated; judge the constructed pipeline in $conversation rather than execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a valid pipeline with a $rerank stage, set score = 0.
+      2. If a $rerank stage is present but retrieval is not a native fusion of both modalities (single-modality $search or $vectorSearch, a $unionWith workaround, or manual score math), set score = 0.2.
+      3. If $conversation constructs a native fusion stage followed by a $rerank stage:
+         a. If the $rerank stage lacks required fields (query, path, numDocsToRerank, model), or no $limit caps the fused candidates before $rerank, set score = 0.5.
+         b. Else, set score = 1.0.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: subtract 0.1 (minimum 0) if an earlier aggregate attempt in $conversation was malformed or structurally wrong and later revised. Retries caused by version-gating or transient errors, and the judge's own execution of $reference_answer, do not count.
+  origin: null
+- id: b3c17210-ef40-40da-9af4-0f87daefa41a
+  metadata:
+    name: Rerank with Additional Context Fields
+    description: rerank widens relevance judgment with context fields beyond the searched field
+    category: Rerank
+    subcategory: Reranking
+  input:
+    prompt: |
+      On the 'movies' collection, semantically search the 'plot' field for movies about 'a deadly threat on a plane or ship', then use a neural reranker that weighs each candidate using the plot along with its cast, genres, and director as additional context. Return the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - modality: text
+                    model: voyage-4-lite
+                    path: plot
+                    type: autoEmbed
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $vectorSearch: {
+            index: "vector_auto_index",
+            path: "plot",
+            query: { text: "a deadly threat on a plane or ship" },
+            numCandidates: 400,
+            limit: 20
+          }
+        },
+        {
+          $rerank: {
+            query: { text: "a deadly threat on a plane or ship" },
+            path: ["plot", "cast", "genres", "director"],
+            numDocsToRerank: 20,
+            model: "rerank-2.5"
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      $response retrieves movies by semantic plot search, then reorders the candidates with a native $rerank stage whose path includes the searched field 'plot' plus the requested context fields 'cast', 'genres', and 'director', as in $reference_answer. ($rerank requires MongoDB Atlas 8.3+ and may be version-gated or disabled on the eval cluster; judge the pipeline in $conversation, not execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a semantic retrieval followed by a $rerank stage, set score = 0.
+      2. If the $rerank path omits 'plot' or any of the requested context fields ('cast', 'genres', 'director'), or the stage is missing required fields (query, path, numDocsToRerank, model), set score = 0.5.
+      3. If the $rerank path covers 'plot', 'cast', 'genres', and 'director', set score = 1.0.
+      4. Efficiency penalty: subtract 0.1 (minimum 0) if an earlier aggregate attempt in $conversation was malformed or structurally wrong and later revised. Retries caused by version-gating or transient errors, and the judge's own execution of $reference_answer, do not count.
+  origin: null
+- id: 3e43152c-c407-40fd-a7be-a5ec7d68833a
+  metadata:
+    name: Rerank on Text Equivalent of Embedded Field
+    description: rerank targets the source text field rather than the stored embedding field
+    category: Rerank
+    subcategory: Reranking
+  input:
+    prompt: |
+      On the 'movies-with-plot-embedding' collection, semantically search for movies about 'a dangerous experiment that transforms a person', then use a neural reranker to reorder the candidates against the plot text before returning the top 8.
+    db_seed:
+      - movies-with-plot-embedding:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - modality: text
+                    model: voyage-4-lite
+                    path: plot
+                    type: autoEmbed
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $vectorSearch: {
+            index: "vector_auto_index",
+            path: "plot",
+            query: { text: "a dangerous experiment that transforms a person" },
+            numCandidates: 400,
+            limit: 20
+          }
+        },
+        {
+          $rerank: {
+            query: { text: "a dangerous experiment that transforms a person" },
+            path: "plot",
+            numDocsToRerank: 20,
+            model: "rerank-2.5"
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      $response retrieves semantically similar movies, then reorders the candidates with a native $rerank stage whose path is the text field 'plot' — not the stored embedding field 'plot_embedding_voyage_4_large' — as in $reference_answer. ($rerank requires MongoDB Atlas 8.3+ and may be version-gated or disabled on the eval cluster; judge the pipeline in $conversation, not execution success.)
+
+      # Scoring rubric:
+      1. If $conversation never constructs a semantic retrieval followed by a $rerank stage, set score = 0.
+      2. If the $rerank path targets 'plot_embedding_voyage_4_large' (or any embedding field), or the stage is missing required fields (query, path, numDocsToRerank, model), set score = 0.5.
+      3. If the $rerank path is the text field 'plot', set score = 1.0.
+      4. Efficiency penalty: subtract 0.1 (minimum 0) if an earlier aggregate attempt in $conversation was malformed or structurally wrong and later revised. Retries caused by version-gating or transient errors, and the judge's own execution of $reference_answer, do not count.
+  origin: null

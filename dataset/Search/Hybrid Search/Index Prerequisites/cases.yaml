@@ -44,6 +44,7 @@
          a. If only one of the two indexes is actually created, or both are only described in $response without being created, set score = 0.5.
          b. Else (both indexes created on the 'movies' collection), set score = 1.0.
       3. In all other cases, set score = 0.
+  origin: null
 - id: dc870214-c1ae-4ad5-8155-6fcb319946fd
   metadata:
     name: AutoEmbed Hybrid Index
@@ -90,3 +91,4 @@
          a. If only one of the two indexes is created, or the vector index uses a raw 'vector' field instead of auto-embedding, or both are only described in $response without being created, set score = 0.5.
          b. Else (both indexes created, vector index auto-embedding from 'plot'), set score = 1.0.
       3. In all other cases, set score = 0.
+  origin: null

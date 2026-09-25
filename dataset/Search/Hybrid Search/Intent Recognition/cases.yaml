@@ -17,10 +17,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -72,6 +72,7 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. a single-modality search or a $unionWith merge), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: ddde2d31-1ba5-46ee-bb71-480550c101d8
   metadata:
     name: Combine Keyword and Semantic
@@ -91,10 +92,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -146,6 +147,7 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. merged with $unionWith plus $group/dedup, or a single-modality query), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: 0fe5e659-d464-41ba-b26b-371421d7baf7
   metadata:
     name: Exact and Semantic Both Matter
@@ -165,10 +167,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -220,6 +222,7 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. a single-modality search or a $unionWith merge), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: 86248aba-b036-4c92-ad30-de95b10854b9
   metadata:
     name: Fusion over UnionWith
@@ -239,10 +242,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -294,6 +297,7 @@
       3. If hybrid results were reached WITHOUT a single native fusion stage combining both modalities (e.g. combined with $unionWith plus $group/dedup or a manual score sort), set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: 6cd11d46-3658-4fbb-bf84-2bc3eed2d1ba
   metadata:
     name: Reorder vs Neural Rerank
@@ -302,7 +306,7 @@
     subcategory: Intent Recognition
   input:
     prompt: |
-      On the 'movies' collection, retrieve a broad set of movies semantically similar to 'a deadly virus outbreak or apocalypse' on the 'plot' field, then improve the ordering quality by passing the candidates through a neural reranker. Return the top 8.
+      On the 'movies' collection, retrieve a broad set of movies semantically similar to a deadly virus outbreak or apocalypse, then improve the ordering quality by passing the candidates through a neural reranker. Return the top 8.
     db_seed:
       - movies:
           indexes:
@@ -313,10 +317,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -326,17 +330,16 @@
           $vectorSearch: {
             index: "vector_auto_index",
             path: "plot",
-            query: { text: "a deadly virus outbreak or apocalypse" },
+            query: "a group of people survive a deadly virus outbreak or apocalypse",
             numCandidates: 40,
             limit: 20
           }
         },
         {
           $rerank: {
-            query: { text: "a deadly virus outbreak or apocalypse" },
+            query: "a group of people survive a deadly virus outbreak or apocalypse",
             path: "plot",
-            numDocsToRerank: 20,
-            model: "rerank-2-lite"
+            numDocsToRerank: 20
           }
         },
         { $limit: 8 },
@@ -350,9 +353,9 @@
       1. If $conversation never retrieves candidates for the query, set score = 0.
       2. If $conversation retrieves candidates and then reorders them:
          a. If the reordering is a plain $sort on a score or metadata field (e.g. searchScore, rating) instead of a $rerank stage, set score = 0.5.
-         b. Else (a neural $rerank stage with query, path, numDocsToRerank, model), set score = 1.0.
+         b. Else (a neural $rerank stage with query, path, numDocsToRerank), set score = 1.0.
       3. In all other cases, set score = 0.
-      4. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: 5e7bb263-4dd1-41db-a669-861fa35e8770
   metadata:
     name: Hybrid vs Pure Lexical
@@ -372,10 +375,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -427,6 +430,7 @@
       3. If $conversation answered with a pure keyword $search only (no semantic pipeline), or otherwise reached results without a native fusion stage combining both modalities, set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
 - id: b33e31b7-099d-4768-8bc8-12d70968cec3
   metadata:
     name: Hybrid vs Pure Vector
@@ -446,10 +450,10 @@
               type: search
             - definition:
                 fields:
-                  - type: autoEmbed
-                    path: plot
+                  - modality: text
                     model: voyage-4-lite
-                    modality: text
+                    path: plot
+                    type: autoEmbed
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -501,3 +505,75 @@
       3. If $conversation answered with a pure $vectorSearch only (no keyword pipeline), or otherwise reached results without a native fusion stage combining both modalities, set score = 0.2.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by version-gating or transient cluster errors, or the judge's own reference execution of $reference_answer.
+  origin: null
+- id: a7fb6b16-4f4e-44bc-ab65-069358e5b9f0
+  metadata:
+    name: Debug Worse Hybrid Results
+    description: debugging worse hybrid results for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      On the 'movies' collection, my hybrid search for movies about a contract killer returns worse results than a plain vector search because each sub-pipeline is unbounded and the keyword pipeline dominates the fusion. Diagnose the problem and return a corrected hybrid query for the top 8.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                mappings:
+                  dynamic: true
+              name: default
+              type: search
+            - definition:
+                fields:
+                  - modality: text
+                    model: voyage-4-lite
+                    path: plot
+                    type: autoEmbed
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: "a contract killer reluctantly takes a job to kill someone",
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "hitman killing witness mob", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1.5, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      For the 'movies' collection, $response diagnoses why the hybrid query underperforms (e.g. unbounded sub-pipelines or unbalanced weights) and returns a corrected fused query that bounds each sub-pipeline with a $limit and rebalances the combination weights, as the reference query $reference_answer.
+
+      # Scoring rubric:
+      1. If $response neither diagnoses a cause nor returns a corrected hybrid query, set score = 0.
+      2. If $response returns a corrected single fused query for the 'movies' collection:
+         a. If it fixes only one issue (either bounds the sub-pipelines OR rebalances weights, but not both) or gives a vague diagnosis, set score = 0.5.
+         b. Else (bounded sub-pipelines and rebalanced weights with a clear diagnosis), set score = 1.0.
+      3. In all other cases, set score = 0.
+  origin: null

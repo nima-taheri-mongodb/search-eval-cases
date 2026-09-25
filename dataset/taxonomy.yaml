@@ -44,7 +44,8 @@ taxonomy:
               - Fusion over UnionWith: preferring fusion over unionWith for combining searches for hybrid search
               - Reorder vs Neural Rerank: distinguishing a score reorder from a neural rerank for hybrid search
               - Hybrid vs Pure Lexical: hybrid vs pure lexical for hybrid search
-              - Hybrid vs Pure Vector: hybrid vs pure vector for hybrid search              
+              - Hybrid vs Pure Vector: hybrid vs pure vector for hybrid search
+              - Debug Worse Hybrid Results: debugging worse hybrid results for hybrid search
           - subcategory=Rank Fusion:
               - Basic Reciprocal Rank Fusion: basic reciprocal rank fusion for hybrid search
               - RRF with Weighted Pipelines: RRF with weighted pipelines for hybrid search
@@ -71,3 +72,9 @@ taxonomy:
               - Sort Sub-Pipeline: sort sub-pipeline for hybrid search
               - Skip and Limit Sub-Pipeline: skip and limit sub-pipeline for hybrid search
               - Disallowed Project in Sub-Pipeline: rejecting a project stage inside a sub-pipeline for hybrid search
+      - category=Rerank:
+          - subcategory=Reranking:
+              - Rerank without a Search Index: rerank over a match and sort pipeline when no search index exists
+              - Rerank after Rank Fusion: rerank after rank fusion for hybrid search
+              - Rerank with Additional Context Fields: rerank widens relevance judgment with context fields beyond the searched field
+              - Rerank on Text Equivalent of Embedded Field: rerank targets the source text field rather than the stored embedding field
