@@ -92,3 +92,82 @@
          b. Else (both indexes created, vector index auto-embedding from 'plot'), set score = 1.0.
       3. In all other cases, set score = 0.
   origin: null
+- metadata:
+    name: Setup and Fuse Keyword and Semantic
+    description: creating lexical and auto-embedding indexes then fusing keyword and semantic retrieval for hybrid search
+    category: Hybrid Search
+    subcategory: Index Prerequisites
+  input:
+    prompt: |
+      I want keyword plus semantic search on the 'plot' field of my 'movies' collection.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Illustrative: the user named no model, topic, or limit. The assistant is expected to choose auto-embedding with a supported Voyage model, create both indexes, and demonstrate a native fusion query of its own choosing.
+
+      createSearchIndexes([
+        {
+          name: "default",
+          type: "search",
+          definition: { mappings: { dynamic: true } }
+        },
+        {
+          name: "vector_auto_index",
+          type: "vectorSearch",
+          definition: {
+            fields: [
+              { type: "autoEmbed", path: "plot", model: "voyage-4-lite", modality: "text" }
+            ]
+          }
+        }
+      ])
+
+      aggregate([
+        {
+          $rankFusion: {
+            input: {
+              pipelines: {
+                vector: [
+                  {
+                    $vectorSearch: {
+                      index: "vector_auto_index",
+                      path: "plot",
+                      query: { text: "aliens come to earth" },
+                      numCandidates: 40,
+                      limit: 8
+                    }
+                  }
+                ],
+                lexical: [
+                  {
+                    $search: {
+                      index: "default",
+                      text: { query: "aliens come to earth", path: "plot" }
+                    }
+                  },
+                  { $limit: 8 }
+                ]
+              }
+            },
+            combination: { weights: { vector: 1, lexical: 1 } }
+          }
+        },
+        { $limit: 8 },
+        { $project: { _id: 0, title: 1, genres: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      The assistant creates BOTH a lexical Atlas Search index and an auto-embedding vector index (autoEmbed on 'plot') on the 'movies' collection, then runs a single native fusion pipeline whose vector sub-pipeline uses a natural-language query (never a queryVector), with the fusion stage first and a trailing $limit bounding the output, as the reference definitions and query in $reference_answer. The model, index names, demo topic, weights, and limits in $reference_answer are illustrative; the user specified none of them.
+
+      # Scoring rubric:
+      Grade the index definitions and the query the assistant actually submitted in $conversation, not its prose. Do NOT score on result-set overlap or ordering with $reference_answer (fusion result tails legitimately vary with unspecified numCandidates/limit). Judge structure only; any supported Voyage model and any plausible demonstration topic are acceptable.
+
+      1. If no index is created and no aggregation ran, set score = 0.
+      2. If the fusion stage ($rankFusion or $scoreFusion) is NOT the first stage of the pipeline, or the sub-pipelines are given as an array instead of a named map, or the vector sub-pipeline uses a client-side generated queryVector against the auto-embedding index, set score = 0.
+      3. If the assistant ran the keyword search and the semantic search as separate aggregations and merged them in application code or prose (no native fusion stage, or a $unionWith/$group workaround), set score = 0.2.
+      4. If a native fusion stage combining a $vectorSearch sub-pipeline and a $search sub-pipeline was built with the fusion stage first:
+         a. If only one of the two indexes was actually created, or the assistant asked the user to generate embeddings with an external provider (e.g. OpenAI) instead of using auto-embedding, or a $project stage was placed inside a sub-pipeline, or the trailing $limit is missing, set score = 0.5.
+         b. Else (both indexes created, vector sub-pipeline uses a natural-language text query, fusion first, trailing $limit present), set score = 1.0.
+      5. In all other cases, set score = 0.
+      6. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by index readiness or transient cluster errors, or the judge's own reference execution of $reference_answer.

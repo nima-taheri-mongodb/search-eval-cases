@@ -1,0 +1,41 @@
+- metadata:
+    name: Embedding Model Selection
+    description: choosing a supported auto-embedding model for a domain-specific dataset
+    category: Vector Search
+    subcategory: Index Creation
+    group: Education
+  input:
+    prompt: |
+      I have a collection of source-code snippets I want to search semantically - which embedding model should I use?
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Recommendation: voyage-code-3 — the Voyage model specialised for source code.
+
+      For general-purpose (non-code) text, the Voyage-4 ladder is the accuracy-vs-cost tradeoff: voyage-4-large (highest accuracy) > voyage-4 > voyage-4-lite (cheapest/fastest). Deprecated voyage-3 / voyage-3.5 models should not be recommended. Not supported for auto-embedding: OpenAI models, voyage-context-3, voyage-finance-2, voyage-law-2.
+
+      The model must be set explicitly in the index definition (JSON / driver) — there is no implicit default to rely on. Illustrative definition (the user named no collection or field, so 'snippet' is a placeholder):
+
+      {
+        type: "vectorSearch",
+        definition: {
+          fields: [
+            { type: "autoEmbed", path: "snippet", model: "voyage-code-3", modality: "text" }
+          ]
+        }
+      }
+    llm_judge: |
+      # Success criterion
+      $response recommends 'voyage-code-3' for source code, explains the tradeoff using the Voyage-4 family (voyage-4-large / voyage-4 / voyage-4-lite) for non-code text, and states that the model must be set explicitly in the index definition, as in $reference_answer. The user asked an open question and named no collection or field; an illustrative autoEmbed definition is welcome but not required.
+
+      # Scoring rubric:
+      Judge $response. Do not penalise the assistant for not creating an index or for not showing a definition — the target collection is not present and this is a guidance question. Do not require a specific field name.
+
+      1. If $response recommends a model that is not supported for auto-embedding (e.g. an OpenAI model, voyage-context-3, voyage-finance-2, voyage-law-2), or omits the model entirely and assumes a default, set score = 0.
+      2. If $response recommends a deprecated Voyage-3 or Voyage-3.5 series model (e.g. voyage-3, voyage-3.5, voyage-3-lite, voyage-code-2) as the primary choice instead of voyage-code-3 / a Voyage-4 model, set score = 0.2.
+      3. If $response picks a supported model (voyage-code-3 or a Voyage-4 model) but gives no rationale for why it fits source code, or does not mention that the model must be set explicitly in the definition, set score = 0.5.
+      4. If $response recommends a Voyage-4 model (e.g. voyage-4-large) as the primary choice with a rationale and states the model must be set explicitly, set score = 0.7.
+      5. If $response recommends voyage-code-3 with a rationale (code-specialised) and states the model must be set explicitly, but does not mention the Voyage-4 family as the alternative for general text, set score = 0.8.
+      6. If $response recommends voyage-code-3 with a rationale (code-specialised), names the Voyage-4 family as the alternative for general text, and states the model must be set explicitly in the index definition (with or without an illustrative autoEmbed definition), set score = 1.0.
+      7. In all other cases, set score = 0.

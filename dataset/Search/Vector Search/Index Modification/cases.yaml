@@ -1,0 +1,135 @@
+- metadata:
+    name: Add Second Auto-Embed Field
+    description: extending an existing auto-embedding index to a second text field
+    category: Vector Search
+    subcategory: Index Modification
+  input:
+    prompt: |
+      My 'vector_auto_index' on the 'movies' collection already auto-embeds the 'plot' field with 'voyage-4'. Add the 'title' field to it too.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      updateSearchIndex("vector_auto_index", {
+        fields: [
+          { type: "autoEmbed", path: "plot",  model: "voyage-4", modality: "text" },
+          { type: "autoEmbed", path: "title", model: "voyage-4", modality: "text" }
+        ]
+      })
+    llm_judge: |
+      # Success criterion
+      The existing 'vector_auto_index' on the 'movies' collection is updated in place so its definition contains two autoEmbed fields — 'plot' and 'title' — both using model 'voyage-4', as the reference definition $reference_answer. No separate per-field index is created.
+
+      # Scoring rubric:
+      Check the current index definitions on the 'movies' collection and the update the assistant submitted in $conversation. The user did not restate a model for 'title'; reusing the index's existing 'voyage-4' without asking is the expected behaviour.
+
+      1. If the assistant created a separate vector index for 'title' instead of extending 'vector_auto_index', or made no change and produced no valid definition in $response, set score = 0.
+      2. If the assistant only suggested creating a separate index per field (without doing it) and did not extend the existing index, set score = 0.2.
+      3. If a correct updated definition (autoEmbed 'plot' and autoEmbed 'title', both 'voyage-4') is produced:
+         a. If it is only described in $response and the existing index was not actually updated, set score = 0.5.
+         b. Else ('vector_auto_index' now contains both autoEmbed fields with 'voyage-4'), set score = 1.0.
+      4. In all other cases, set score = 0.
+- metadata:
+    name: Apply Quantization and Dimensions
+    description: applying quantization and reduced dimensions to an existing auto-embedding index
+    category: Vector Search
+    subcategory: Index Modification
+  input:
+    prompt: |
+      On the 'movies' collection, reduce 'vector_auto_index' to 512 output dimensions and use binary quantization. Leave all other settings unchanged. I understand this regenerates the index and re-embeds the collection with per-token charges, and I approve that cost. Apply the change to the existing index.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+                    numDimensions: 1024
+                    quantization: scalar
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      updateSearchIndex("vector_auto_index", {
+        fields: [
+          {
+            type: "autoEmbed",
+            path: "plot",
+            model: "voyage-4-lite",
+            modality: "text",
+            quantization: "binary",
+            numDimensions: 512
+          }
+        ]
+      })
+    llm_judge: |
+      # Success criterion
+      The existing 'vector_auto_index' on the 'movies' collection is updated in place so its autoEmbed 'plot' field carries quantization 'binary' and numDimensions 512, with similarity omitted to retain the default dotProduct, as the reference definition $reference_answer. Valid quantization values are 'float', 'scalar', 'binary', 'binaryNoRescore'; numDimensions must be one of the model's fixed supported output sizes (e.g. 256, 512, 1024, 2048), not an arbitrary value.
+
+      # Scoring rubric:
+      Check the current index definitions on the 'movies' collection and the update the assistant submitted in $conversation. For an accepted update still building, inspect its latest requested definition; do not require regeneration to finish. The prompt already specifies every changed parameter and approves the cost, so another confirmation is not required.
+
+      1. If the assistant made no change and produced no valid definition in $response, replaced the index instead of updating it, changed the autoEmbed field or model, or invented parameters that do not exist for autoEmbed fields (e.g. 'compression', 'modelQuantization', 'rescoring' flags), set score = 0.
+      2. If the assistant used the right concepts but invalid values (e.g. numDimensions 768, quantization 'int8'), set score = 0.2.
+      3. If a definition with valid quantization/numDimensions values is produced:
+         a. If it is only described in $response and the existing index was not actually updated, or the submitted definition explicitly sets similarity or uses a value other than binary/512, set score = 0.5.
+        b. Else ('vector_auto_index' updated with quantization 'binary', numDimensions 512, similarity omitted on the autoEmbed 'plot' field, model 'voyage-4-lite' and all other settings unchanged), set score = 1.0.
+      4. In all other cases, set score = 0.
+- metadata:
+    name: Upgrade Embedding Model
+    description: switching an existing auto-embedding index to a higher-accuracy model
+    category: Vector Search
+    subcategory: Index Modification
+  input:
+    prompt: |
+      Upgrade 'vector_auto_index' on the 'movies' collection from 'voyage-4-lite' to 'voyage-4-large' for better accuracy. Keep all other embedding settings unchanged. I understand this regenerates every embedding with per-token charges, and I approve that cost. Apply the change to the existing index.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+                    numDimensions: 1024
+                    quantization: scalar
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      updateSearchIndex("vector_auto_index", {
+        fields: [
+          {
+            type: "autoEmbed",
+            path: "plot",
+            model: "voyage-4-large",
+            modality: "text",
+            numDimensions: 1024,
+            quantization: "scalar"
+          }
+        ]
+      })
+    llm_judge: |
+      # Success criterion
+      The existing 'vector_auto_index' on the 'movies' collection is updated in place so its autoEmbed 'plot' field uses model 'voyage-4-large' while retaining 1024 dimensions, scalar quantization, the default dotProduct similarity (omit similarity from the submitted definition), and all other settings, as the reference definition $reference_answer. The same index is modified; no new index is created and the old one is not dropped in favour of a replacement.
+
+      # Scoring rubric:
+      Check the current index definitions on the 'movies' collection and the update the assistant submitted in $conversation. For an accepted update still building, inspect its latest requested definition; do not require regeneration to finish. The target model and embedding cost are already approved, so another confirmation is not required.
+
+      1. If the assistant made no change and produced no valid definition in $response, created a brand-new index with 'voyage-4-large' instead of updating 'vector_auto_index', dropped/recreated the index, changed the fixed field, dimensions, or quantization, or explicitly set similarity in the submitted definition, set score = 0.
+      2. If a correct updated definition (autoEmbed 'plot' with model 'voyage-4-large', all non-model settings unchanged) is produced:
+         a. If it is only described in $response and the existing index was not actually updated, set score = 0.5.
+         b. Else ('vector_auto_index' now uses 'voyage-4-large' on the autoEmbed 'plot' field with all other settings preserved), set score = 1.0.
+      3. In all other cases, set score = 0.

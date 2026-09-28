@@ -1,0 +1,29 @@
+- metadata:
+    name: Auto-Embed vs BYOE Clarification
+    description: clarifying auto-embedding vs bring-your-own-embeddings before creating a semantic search index
+    category: Vector Search
+    subcategory: Index Creation
+    group: Informed Clarification
+  input:
+    prompt: |
+      I want semantic search on the 'plot' field of my 'movies' collection. I don't have any search index set up yet.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Ask which embedding path the user wants before creating an index:
+      - Auto-embedding: Atlas/Voyage generates vectors from the text in 'plot'; an autoEmbed field names the model, so the application does not need its own embedding pipeline.
+      - Bring-your-own-embeddings (BYOE): the application supplies vectors in an embedding field; a vector field indexes those vectors with the appropriate dimensions and similarity.
+
+      Explain both alternatives and ask whether the user wants Atlas-generated embeddings or will supply their own. Do not choose a path or create an index in this turn. Branch-specific index parameters can be settled after this choice.
+    llm_judge: |
+      # Success criterion
+      $response explains both embedding paths and asks the user to choose how embeddings will be supplied before taking action, as in $reference_answer. This tests clarification, not index creation or a complete multi-turn setup.
+
+      # Scoring rubric:
+      Judge $response and the assistant's own operations in $conversation. Read-only collection/schema/index inspection is allowed. Ignore harness seeding and judge-owned operations.
+
+      - Score 0 if the assistant attempts to create, update, or drop an index, generate embeddings, or execute a vector query in this turn. Asking a question and then acting without a user reply is still a failure, even if the operation fails or is later undone.
+      - Score 0 if the assistant silently chooses an embedding path, presents only one alternative, or gives an empty or unrelated response.
+      - Otherwise, score 1.0 if $response explains auto-embedding (Atlas/Voyage generates vectors from text) and BYOE (the application supplies vectors in an embedding field), then asks which path the user wants or whether they already have embeddings to use. A provisional recommendation subject to that choice is acceptable. Do not require questions about parameters that depend on the unchosen path.
+      - In all other cases, score 0. No partial-credit tiers apply.

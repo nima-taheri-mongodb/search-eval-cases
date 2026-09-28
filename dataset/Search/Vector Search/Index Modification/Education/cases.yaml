@@ -1,0 +1,51 @@
+- metadata:
+    name: Storage Reduction Options
+    description: explaining vector-index quantization and dimension-reduction options, tradeoffs, and regeneration costs
+    category: Vector Search
+    subcategory: Index Modification
+    group: Education
+  input:
+    prompt: |
+      My auto-embedding vector index on movie plots is huge and expensive - can I shrink it without rebuilding my whole pipeline?
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+                    numDimensions: 1024
+                    quantization: scalar
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      Yes: for an auto-embedding vector index like this one, index settings can reduce the vector footprint without redesigning the application's search pipeline. Explain the available options in plain language rather than assuming the user knows which settings to choose.
+
+      Quantization reduces how much information is stored for each number in a vector:
+      - float stores unquantized values, retaining precision at the highest storage cost among these choices.
+      - scalar is the default, using less space than float with some loss of precision. An index already using scalar does not shrink just by selecting scalar again.
+      - binary compresses more aggressively and uses rescoring to recover some ranking quality.
+      - binaryNoRescore skips that rescoring, trading ranking quality for additional storage/query-work savings.
+
+      Reducing output dimensions shortens each vector instead of reducing precision per number. The numDimensions setting uses the model's supported Matryoshka (MRL) output sizes, not arbitrary values: the Voyage-4 family supports 256, 512, 1024, and 2048, with 1024 as the default. For an existing 1024-dimensional index, 512 or 256 are possible reductions, not choices the user has already made. Fewer dimensions can reduce storage and search work at the expense of relevance quality. Quantization and dimension reduction can be used separately or together; evaluate relevance on representative queries before choosing a configuration.
+
+      Avoiding an application-pipeline rewrite is not the same as avoiding an index rebuild. Changing quantization or output dimensions on an existing auto-embedding index triggers full index regeneration and re-embedding of the collection, with per-token embedding charges. Explain the one-time regeneration cost separately from potential ongoing storage savings; do not promise a particular saving or free re-embedding.
+
+      The user is asking to learn the options, not authorizing an update or selecting a target configuration. Explain that any later change needs agreement on settings and informed confirmation of the regeneration cost. Optional questions about the current index, storage budget, or acceptable relevance tradeoffs can help tailor advice, but must not replace the overview. Do not require an immediate choice, presume binary/512 or another target, run a query, generate embeddings, or change an index. A code example is optional and must be clearly illustrative rather than an applied change.
+    llm_judge: |
+      # Success criterion
+      $response informs a non-expert user about the available vector-index storage-reduction options and their tradeoffs, as in $reference_answer. It distinguishes keeping the application pipeline from avoiding index regeneration. This is an open-ended Education case, not a single-missing-parameter clarification or execution test.
+
+      # Scoring rubric:
+      Judge $response and the assistant's own operations in $conversation. Read-only schema/index inspection is allowed but not required; ignore harness seeding and judge-owned operations. Textual examples are not execution. Apply the first matching rule. No immediate setting choice, confirmation question, code example, exact cost estimate, or query result is required for full credit.
+
+      - Score 0 if the assistant attempts an index creation/update/deletion, embedding generation, or vector query. The user requested guidance, not an operation; asking and then acting without a reply still fails even if the operation fails or is later undone.
+      - Score 0 if the response is empty or unrelated, invents index parameters such as 'compression', 'modelQuantization', or independent 'rescoring' flags, claims these auto-embedding definition changes avoid regeneration or re-embedding charges, or falsely treats a specific target configuration as already chosen or approved by the user.
+      - Otherwise, score 0.2 if the assistant gives relevant concepts but proposes unsupported quantization or dimension values, such as quantization 'int8' or numDimensions 768, or presents a larger footprint (numDimensions 2048 or switching scalar to float) as a way to shrink the index.
+      - Otherwise, score 1.0 if the assistant directly answers the open-ended question in accessible terms, covers float/scalar/binary/binaryNoRescore and their storage/precision/rescoring tradeoffs, and explains dimension reduction using the supported output sizes and 1024 default rather than arbitrary values. It must distinguish quantization from dimension reduction, explain that they can be combined and may affect relevance, distinguish application-pipeline reuse from full index regeneration, warn about per-token re-embedding charges, and make clear that settings and costs need agreement before any later update. Do not require the user to choose a configuration in this turn.
+      - Otherwise, score 0.5 if the assistant meaningfully explains valid storage-reduction options but omits an option, the dimension-reduction alternative or supported-size constraint, a material quality tradeoff, the pipeline/rebuild distinction, or the regeneration/billing warning.
+      - Otherwise, score 0.2 if the response provides only limited relevant guidance or asks for configuration details without explaining the available options. A clarification-only response does not satisfy the educational goal.
+      - In all other cases, score 0.
