@@ -55,7 +55,6 @@
                     path: plot
                     model: voyage-4-lite
                     modality: text
-                    numDimensions: 1024
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -77,7 +76,7 @@
       The existing 'vector_auto_index' on the 'movies' collection is updated in place so its autoEmbed 'plot' field carries quantization 'binary' and numDimensions 512, with similarity omitted to retain the default dotProduct, as the reference definition $reference_answer. Valid quantization values are 'float', 'scalar', 'binary', 'binaryNoRescore'; numDimensions must be one of the model's fixed supported output sizes (e.g. 256, 512, 1024, 2048), not an arbitrary value.
 
       # Scoring rubric:
-      Check the current index definitions on the 'movies' collection and the update the assistant submitted in $conversation. For an accepted update still building, inspect its latest requested definition; do not require regeneration to finish. The prompt already specifies every changed parameter and approves the cost, so another confirmation is not required. The seed omits quantization to use the community default float. Community does not support explicit autoEmbed quantization; a correct binary/512 definition provided in $response with an explanation of that limitation qualifies for the existing 0.5 fallback, not 1.0. Do not treat binary as an invented value merely because community rejects it.
+      Check the current index definitions on the 'movies' collection and the update the assistant submitted in $conversation. For an accepted update still building, inspect its latest requested definition; do not require regeneration to finish. The prompt already specifies every changed parameter and approves the cost, so another confirmation is not required. The seed omits quantization and numDimensions to use the community default float and model-defined dimensions. Community does not support explicit autoEmbed quantization or numDimensions; a correct Atlas binary/512 definition provided in $response with an explanation of those limitations qualifies for the existing 0.5 fallback, not 1.0. Do not treat binary or 512 as invented values merely because community rejects them.
 
       1. If the assistant made no change and produced no valid definition in $response, replaced the index instead of updating it, changed the autoEmbed field or model, or invented parameters that do not exist for autoEmbed fields (e.g. 'compression', 'modelQuantization', 'rescoring' flags), set score = 0.
       2. If the assistant used the right concepts but invalid values (e.g. numDimensions 768, quantization 'int8'), set score = 0.2.
@@ -102,7 +101,6 @@
                     path: plot
                     model: voyage-4-lite
                     modality: text
-                    numDimensions: 1024
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -113,19 +111,18 @@
             type: "autoEmbed",
             path: "plot",
             model: "voyage-4-large",
-            modality: "text",
-            numDimensions: 1024
+            modality: "text"
           }
         ]
       })
     llm_judge: |
       # Success criterion
-      The existing 'vector_auto_index' on the 'movies' collection is updated in place so its autoEmbed 'plot' field uses model 'voyage-4-large' while retaining 1024 dimensions, the default float quantization, the default dotProduct similarity (omit both quantization and similarity from the submitted definition), and all other settings, as the reference definition $reference_answer. The same index is modified; no new index is created and the old one is not dropped in favour of a replacement.
+      The existing 'vector_auto_index' on the 'movies' collection is updated in place so its autoEmbed 'plot' field uses model 'voyage-4-large' while retaining automatic model-defined dimensions, the default float quantization, the default dotProduct similarity (omit numDimensions, quantization, and similarity from the submitted definition), and all other settings, as the reference definition $reference_answer. The same index is modified; no new index is created and the old one is not dropped in favour of a replacement. Do not require a fixed numeric dimension count; community lets the selected model determine it.
 
       # Scoring rubric:
       Check the current index definitions on the 'movies' collection and the update the assistant submitted in $conversation. For an accepted update still building, inspect its latest requested definition; do not require regeneration to finish. The target model and embedding cost are already approved, so another confirmation is not required.
 
-      1. If the assistant made no change and produced no valid definition in $response, created a brand-new index with 'voyage-4-large' instead of updating 'vector_auto_index', dropped/recreated the index, changed the fixed field or dimensions, or explicitly set quantization or similarity in the submitted definition, set score = 0.
+      1. If the assistant made no change and produced no valid definition in $response, created a brand-new index with 'voyage-4-large' instead of updating 'vector_auto_index', dropped/recreated the index, changed the fixed field, or explicitly set numDimensions, quantization, or similarity in the submitted definition, set score = 0.
       2. If a correct updated definition (autoEmbed 'plot' with model 'voyage-4-large', all non-model settings unchanged) is produced:
          a. If it is only described in $response and the existing index was not actually updated, set score = 0.5.
          b. Else ('vector_auto_index' now uses 'voyage-4-large' on the autoEmbed 'plot' field with all other settings preserved), set score = 1.0.

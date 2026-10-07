@@ -16,7 +16,6 @@
                     path: plot
                     model: voyage-4-lite
                     modality: text
-                    numDimensions: 1024
               name: vector_auto_index
               type: vectorSearch
   expected:
@@ -31,7 +30,7 @@
 
       These configurable quantization options apply to deployments that support them. The community seed omits quantization and uses the default float; community rejects explicit autoEmbed quantization, including an explicit float setting. If discussing the inspected community index, explain that limitation rather than promising a local scalar or binary update. Describing the supported Atlas options remains part of the educational goal.
 
-      Reducing output dimensions shortens each vector instead of reducing precision per number. The numDimensions setting uses the model's supported Matryoshka (MRL) output sizes, not arbitrary values: the Voyage-4 family supports 256, 512, 1024, and 2048, with 1024 as the default. For an existing 1024-dimensional index, 512 or 256 are possible reductions, not choices the user has already made. Fewer dimensions can reduce storage and search work at the expense of relevance quality. Quantization and dimension reduction can be used separately or together; evaluate relevance on representative queries before choosing a configuration.
+      Reducing output dimensions shortens each vector instead of reducing precision per number. On supported Atlas deployments, the numDimensions setting uses the model's supported Matryoshka (MRL) output sizes, not arbitrary values: the Voyage-4 family supports 256, 512, 1024, and 2048, with 1024 as the default. For an Atlas index using 1024 dimensions, 512 or 256 are possible reductions, not choices the user has already made. Community rejects explicit autoEmbed numDimensions and determines dimensions automatically from the model; the seed omits numDimensions. Do not assume the inspected community index has a configured 1024-dimensional setting or promise a local dimension-reduction update. Fewer dimensions can reduce storage and search work at the expense of relevance quality. On supported deployments, quantization and dimension reduction can be used separately or together; evaluate relevance on representative queries before choosing a configuration.
 
       Avoiding an application-pipeline rewrite is not the same as avoiding an index rebuild. Changing quantization or output dimensions on an existing auto-embedding index triggers full index regeneration and re-embedding of the collection, with per-token embedding charges. Explain the one-time regeneration cost separately from potential ongoing storage savings; do not promise a particular saving or free re-embedding.
 
