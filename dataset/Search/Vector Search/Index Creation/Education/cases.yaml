@@ -11,11 +11,11 @@
       - movies
   expected:
     reference_answer: |
-      Recommendation: voyage-code-3 — the Voyage model specialised for source code.
+      Recommendation: voyage-code-3 - the Voyage model specialised for source code. Explain why that specialization fits code snippets and the relevant trade-off, such as code-focused retrieval versus broader general-text applicability. Naming other models is optional.
 
-      For general-purpose (non-code) text, the Voyage-4 ladder is the accuracy-vs-cost tradeoff: voyage-4-large (highest accuracy) > voyage-4 > voyage-4-lite (cheapest/fastest). Deprecated voyage-3 / voyage-3.5 models should not be recommended. Not supported for auto-embedding: OpenAI models, voyage-context-3, voyage-finance-2, voyage-law-2.
+      Optional additional guidance: for general-purpose (non-code) text, the Voyage-4 ladder is the accuracy-vs-cost tradeoff: voyage-4-large (highest accuracy) > voyage-4 > voyage-4-lite (cheapest/fastest). Deprecated voyage-3 / voyage-3.5 models should not be recommended. Not supported for auto-embedding: OpenAI models, voyage-context-3, voyage-finance-2, voyage-law-2.
 
-      The model must be set explicitly in the index definition (JSON / driver) — there is no implicit default to rely on. Illustrative definition (the user named no collection or field, so 'snippet' is a placeholder):
+      Optional configuration guidance: the model must be set explicitly in the index definition (JSON / driver); there is no implicit default to rely on. This reminder is not required to answer the model-selection question. Illustrative definition (the user named no collection or field, so 'snippet' is a placeholder):
 
       {
         type: "vectorSearch",
@@ -27,15 +27,14 @@
       }
     llm_judge: |
       # Success criterion
-      $response recommends 'voyage-code-3' for source code, explains the tradeoff using the Voyage-4 family (voyage-4-large / voyage-4 / voyage-4-lite) for non-code text, and states that the model must be set explicitly in the index definition, as in $reference_answer. The user asked an open question and named no collection or field; an illustrative autoEmbed definition is welcome but not required.
+      $response recommends 'voyage-code-3' for atlas auto-embeddings with a rationale explaining its suitability for source code and a relevant trade-off, as in $reference_answer. The user asked a model-selection question and named no collection or field; index-configuration guidance, explanations of other Voyage models, and an illustrative autoEmbed definition are welcome but not required.
 
       # Scoring rubric:
-      Judge $response. Do not penalise the assistant for not creating an index or for not showing a definition — the target collection is not present and this is a guidance question. Do not require a specific field name.
+      Judge $response by the primary embedding model it recommends, then apply the explanation deduction. This is a guidance question with no target collection: do not penalise the assistant for not creating an index or showing a definition, and do not require a specific field name, a reminder to set the model explicitly in the index definition, or explanations of other Voyage models.
 
-      1. If $response recommends a model that is not supported for auto-embedding (e.g. an OpenAI model, voyage-context-3, voyage-finance-2, voyage-law-2), or omits the model entirely and assumes a default, set score = 0.
-      2. If $response recommends a deprecated Voyage-3 or Voyage-3.5 series model (e.g. voyage-3, voyage-3.5, voyage-3-lite, voyage-code-2) as the primary choice instead of voyage-code-3 / a Voyage-4 model, set score = 0.2.
-      3. If $response picks a supported model (voyage-code-3 or a Voyage-4 model) but gives no rationale for why it fits source code, or does not mention that the model must be set explicitly in the definition, set score = 0.5.
-      4. If $response recommends a Voyage-4 model (e.g. voyage-4-large) as the primary choice with a rationale and states the model must be set explicitly, set score = 0.7.
-      5. If $response recommends voyage-code-3 with a rationale (code-specialised) and states the model must be set explicitly, but does not mention the Voyage-4 family as the alternative for general text, set score = 0.8.
-      6. If $response recommends voyage-code-3 with a rationale (code-specialised), names the Voyage-4 family as the alternative for general text, and states the model must be set explicitly in the index definition (with or without an illustrative autoEmbed definition), set score = 1.0.
-      7. In all other cases, set score = 0.
+      - voyage-code-3 as the primary choice: score 1.0.
+      - A Voyage-4 model (e.g. voyage-4-large) as the primary choice: score 0.7.
+      - A deprecated Voyage-3 / Voyage-3.5 model (e.g. voyage-3, voyage-3.5, voyage-3-lite, voyage-code-2) as the primary choice: score 0.2.
+      - No model recommended (e.g. assumes a default), an unsupported model (e.g. an OpenAI model, voyage-context-3, voyage-finance-2, voyage-law-2), or anything else: score 0.
+
+      Explanation deduction: for a voyage-code-3 or Voyage-4 primary choice, subtract 0.2 once if $response does not explain both why the model fits source code and a relevant trade-off (e.g. code specialization versus general-text applicability, or accuracy versus cost). A voyage-code-3 recommendation without that explanation scores 0.8.

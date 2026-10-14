@@ -1,6 +1,6 @@
 - metadata:
     name: Auto-Embed Index Creation
-    description: creating an auto-embedding vector index and demonstrating a natural-language semantic query
+    description: creating an auto-embedding vector index on the requested text field
     category: Vector Search
     subcategory: Index Creation
   input:
@@ -10,7 +10,7 @@
       - movies
   expected:
     reference_answer: |
-      Illustrative: the user named the 'plot' field but no model, index name, or demo topic. Only the 'plot' text field should be indexed; any supported Voyage model set explicitly on it is acceptable, and the assistant is expected to demonstrate the index with a natural-language query of its own choosing.
+      Illustrative: the user named the 'plot' field but no model or index name. Only the 'plot' text field should be indexed; any supported Voyage model set explicitly on it is acceptable. Creating the index satisfies the request; the demonstration query below is optional and need not be run or shown.
 
       createSearchIndexes([
         {
@@ -38,15 +38,14 @@
       ])
     llm_judge: |
       # Success criterion
-      An auto-embedding vector index (field type 'autoEmbed' over the 'plot' text field with a supported Voyage model set explicitly) is created on the 'movies' collection, and the assistant then shows it working by running a $vectorSearch against it with a plain natural-language query (no queryVector, no client-side embedding), as the reference definition and query in $reference_answer. The user specified only the 'plot' field, with no model, index name, or topic: the assistant is expected to choose sensibly and demonstrate the result, and the specific choices in $reference_answer are illustrative.
+      An auto-embedding vector index (field type 'autoEmbed' over the 'plot' text field with a supported Voyage model set explicitly) is created on the 'movies' collection, as in the reference definition in $reference_answer. The user specified only the 'plot' field, with no model or index name: the assistant is expected to choose sensibly, and the specific choices in $reference_answer are illustrative. A sample semantic query is welcome but not required.
 
       # Scoring rubric:
-      Grade the index definition and the query the assistant actually submitted in $conversation, not its prose. Do NOT score on exact result ordering versus $reference_answer; judge index correctness and query structure. Any supported Voyage model is acceptable. Only the 'plot' field should be indexed; indexing additional fields (e.g. 'title') is not acceptable.
+      Grade the index definition the assistant actually submitted in $conversation, not its prose, except for the definition-only fallback below. Any supported Voyage model is acceptable. Only the 'plot' field should be indexed; indexing additional fields (e.g. 'title') is not acceptable. Do not require a sample query, query execution, or query results for full credit; the query in $reference_answer is illustrative only.
 
       1. If no vector index is created on the 'movies' collection and no valid definition appears in $response, set score = 0.
       2. If the created index is broken for auto-embedding — e.g. it uses field type 'vector' pointing at the raw text 'plot' path, or fabricates numDimensions/similarity for a text field — with no clarification, set score = 0.
       3. If an auto-embedding vector index over 'plot' is correctly defined with an explicit supported model:
-         a. If the index also indexes fields other than 'plot', or the index is only described in $response without being created, or it is created but no $vectorSearch was run, or the query passes a queryVector (client-side or fabricated embedding) instead of a natural-language query, set score = 0.5.
-         b. Else (index created with autoEmbed on 'plot', $vectorSearch run with a natural-language query on a plausible demonstration topic), set score = 1.0.
+        a. If the index also indexes fields other than 'plot', or the index is only described in $response without being created, set score = 0.5.
+        b. Else (index created with autoEmbed on only 'plot' and an explicit supported model), set score = 1.0.
       4. In all other cases, set score = 0.
-      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by index readiness or transient cluster errors, or the judge's own reference execution of $reference_answer.
