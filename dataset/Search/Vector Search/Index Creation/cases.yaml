@@ -1,0 +1,51 @@
+- metadata:
+    name: Auto-Embed Index Creation
+    description: creating an auto-embedding vector index on the requested text field
+    category: Vector Search
+    subcategory: Index Creation
+  input:
+    prompt: |
+      I want to set up semantic search on my 'movies' collection on 'plot' field using auto-embeddings.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Illustrative: the user named the 'plot' field but no model or index name. Only the 'plot' text field should be indexed; any supported Voyage model set explicitly on it is acceptable. Creating the index satisfies the request; the demonstration query below is optional and need not be run or shown.
+
+      createSearchIndexes([
+        {
+          name: "vector_auto_index",
+          type: "vectorSearch",
+          definition: {
+            fields: [
+              { type: "autoEmbed", path: "plot", model: "voyage-4-lite", modality: "text" }
+            ]
+          }
+        }
+      ])
+
+      aggregate([
+        {
+          $vectorSearch: {
+            index: "vector_auto_index",
+            path: "plot",
+            query: { text: "survivors band together after an outbreak" },
+            numCandidates: 40,
+            limit: 5
+          }
+        },
+        { $project: { _id: 0, title: 1, plot: 1, score: { $meta: "vectorSearchScore" } } }
+      ])
+    llm_judge: |
+      # Success criterion
+      An auto-embedding vector index (field type 'autoEmbed' over the 'plot' text field with a supported Voyage model set explicitly) is created on the 'movies' collection, as in the reference definition in $reference_answer. The user specified only the 'plot' field, with no model or index name: the assistant is expected to choose sensibly, and the specific choices in $reference_answer are illustrative. A sample semantic query is welcome but not required.
+
+      # Scoring rubric:
+      Grade the index definition the assistant actually submitted in $conversation, not its prose, except for the definition-only fallback below. Any supported Voyage model is acceptable. Only the 'plot' field should be indexed; indexing additional fields (e.g. 'title') is not acceptable. Do not require a sample query, query execution, or query results for full credit; the query in $reference_answer is illustrative only.
+
+      1. If no vector index is created on the 'movies' collection and no valid definition appears in $response, set score = 0.
+      2. If the created index is broken for auto-embedding — e.g. it uses field type 'vector' pointing at the raw text 'plot' path, or fabricates numDimensions/similarity for a text field — with no clarification, set score = 0.
+      3. If an auto-embedding vector index over 'plot' is correctly defined with an explicit supported model:
+        a. If the index also indexes fields other than 'plot', or the index is only described in $response without being created, set score = 0.5.
+        b. Else (index created with autoEmbed on only 'plot' and an explicit supported model), set score = 1.0.
+      4. In all other cases, set score = 0.

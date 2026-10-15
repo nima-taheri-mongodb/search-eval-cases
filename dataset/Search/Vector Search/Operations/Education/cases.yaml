@@ -1,0 +1,70 @@
+- metadata:
+    name: Query Rate Limits
+    description: explaining auto-embedding query rate limits, their scope, tiers, and recovery
+    category: Vector Search
+    subcategory: Operations
+    group: Education
+  input:
+    prompt: |
+      Under load my app gets a rate-limit exceeded error from vector search on my auto-embedding index - what now?
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Guidance only — no index or pipeline change.
+
+      - Auto-embedding query rate limits are user-facing and enforced at the cluster level, per embedding model, as both requests-per-minute (RPM) and tokens-per-minute (TPM). They are shared by all auto-embed indexes on the cluster that use that model.
+      - Limits are tiered by cluster type: an M0 without a payment method sits at Tier 0; adding a payment method moves it to Tier 1. Tier 1 examples: voyage-4 ≈ 8M TPM / 2k RPM, voyage-4-lite ≈ 16M TPM / 2k RPM.
+      - Recovery: implement application-side exponential backoff + retry on the rate-limit error.
+      - Visibility: the auto-embedding configuration dashboard in Atlas shows the current limits.
+      - Increases: request a tier increase through an Atlas support (HELP) ticket.
+      - Internal indexing-side rate limits are not user-exposed and require no error handling; do not tell the user to switch to bring-your-own-embeddings or disable the feature.
+    llm_judge: |
+      # Success criterion
+      $response explains that auto-embedding query rate limits are cluster-level, per embedding model, expressed as RPM + TPM, shared by all auto-embed indexes on the cluster, and tiered by cluster type (M0 without payment method at Tier 0, payment method moves to Tier 1); prescribes application-side backoff + retry; points to the auto-embedding configuration dashboard to view limits; and notes tier increases go through a support (HELP) ticket, as in $reference_answer.
+
+      # Scoring rubric:
+      Judge $response. Exact TPM/RPM figures are a bonus, not a requirement.
+
+      1. If $response tells the user to switch to bring-your-own-embeddings or disable auto-embedding, claims no rate limits exist, or attributes the error to internal indexing rate limits, set score = 0.
+      2. If $response only says to retry later with no explanation of scope, no dashboard reference, and no path to raise the limit, set score = 0.2.
+      3. If $response gives backoff/retry advice but misstates the scope (e.g. per index or per project rather than per cluster per model) or claims the limits auto-scale, set score = 0.5.
+      4. If $response correctly states the scope (cluster-level, per model, RPM + TPM, shared across auto-embed indexes on the cluster), mentions tiering by cluster type (including that a free-tier cluster without a payment method is at the lowest tier), prescribes application-side backoff + retry, points to the auto-embedding configuration dashboard, and notes increases go through a support ticket, set score = 1.0.
+      5. If $response gives backoff/retry advice plus at least one of (how to check the current limits, a path to raise the limit via support), does not misstate the scope, but omits or only partially covers the scope/tiering details required for 1.0, set score = 0.7.
+      6. In all other cases, set score = 0.
+- metadata:
+    name: Cluster Availability and Cost
+    description: confirming auto-embedding availability across cluster types and clouds and setting cost expectations
+    category: Vector Search
+    subcategory: Operations
+    group: Education
+  input:
+    prompt: |
+      I'm on an M0 on AWS - can I even use auto-embedding, and what will it cost me?
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Guidance only — no index should be created.
+
+      Availability: auto-embedding is available by default on all Atlas cluster types (free tier M0, Flex, dedicated), on both coupled and decoupled (search-node) architectures, on AWS, GCP, and Azure. Yes, an M0 on AWS can use it.
+
+      Cost caveats:
+      - Inference runs on GCP in a US region, so AWS/Azure clusters incur billed cross-cloud data transfer (the Atlas UI shows a warning).
+      - Free tokens are allocated per Atlas Organization and shared by query + indexing workloads across all auto-embed indexes and models in the org (not shared with the separate Atlas Embedding & Reranking API). After the free allocation is exhausted, usage is billed per token.
+      - An M0 without a payment method gets the lowest (Tier 0) query rate limit.
+
+      Bonus: documents beyond the model's ~32K-token context window are truncated from the end automatically (non-configurable, no failure); oversized queries fail with a context-limit-exceeded error.
+    llm_judge: |
+      # Success criterion
+      $response confirms auto-embedding is available on an M0 on AWS (and across free/Flex/dedicated clusters, coupled and decoupled architectures, AWS/GCP/Azure), warns that inference runs on GCP in a US region so AWS/Azure clusters incur billed cross-cloud transfer, explains that free tokens are per Atlas Organization and shared across query + indexing for all auto-embed indexes/models with per-token billing afterwards, and notes an M0 without a payment method is at the lowest (Tier 0) query rate limit, as in $reference_answer.
+
+      # Scoring rubric:
+      Judge $response. Mentioning input truncation (~32K tokens for documents, error for oversized queries) is a bonus but does not raise the score above 1.0.
+
+      1. If $response claims a dedicated cluster is required, that AWS or Azure clusters are unsupported, or that usage stays free indefinitely, set score = 0.
+      2. If $response gets availability right (M0 on AWS works) but omits the cross-cloud inference/transfer caveat, or misstates the free-token scope (e.g. per cluster or per project instead of per Organization), set score = 0.5.
+      3. If $response confirms availability on M0 / all cluster types and clouds, includes the GCP-US inference cross-cloud transfer caveat for AWS/Azure, states free tokens are per Organization shared across query and indexing with per-token billing after exhaustion, and notes the lowest query rate-limit tier for an M0 without a payment method, set score = 1.0.
+      4. If $response meets every requirement of 1.0 except that it omits (but does not contradict) the lowest query rate-limit tier for an M0 without a payment method, set score = 0.8.
+      5. If $response gets availability right, does not misstate the free-token scope, and includes the cross-cloud caveat, but otherwise only partially covers the cost details required for 1.0 (e.g. omits that free tokens are shared across query and indexing, or omits per-token billing after exhaustion), set score = 0.7.
+      6. In all other cases, set score = 0.
