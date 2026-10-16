@@ -577,3 +577,45 @@
          b. Else (bounded sub-pipelines and rebalanced weights with a clear diagnosis), set score = 1.0.
       3. In all other cases, set score = 0.
   origin: null
+- metadata:
+    name: Setup and Fuse Keyword and Semantic
+    description: creating lexical and auto-embedding indexes for hybrid search
+    category: Hybrid Search
+    subcategory: Intent Recognition
+  input:
+    prompt: |
+      I want keyword plus semantic search on the 'plot' field of my 'movies' collection.
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Illustrative: the user named no model. The assistant is expected to choose auto-embedding with a supported Voyage model and create both indexes.
+
+      createSearchIndexes([
+        {
+          name: "default",
+          type: "search",
+          definition: { mappings: { dynamic: true } }
+        },
+        {
+          name: "vector_auto_index",
+          type: "vectorSearch",
+          definition: {
+            fields: [
+              { type: "autoEmbed", path: "plot", model: "voyage-4-lite", modality: "text" }
+            ]
+          }
+        }
+      ])
+    llm_judge: |
+      # Success criterion
+      The assistant creates BOTH a lexical Atlas Search index and an auto-embedding vector index (autoEmbed on 'plot') on the 'movies' collection so that a hybrid query can run with natural-language vector queries, as the reference definitions in $reference_answer. The model and index names in $reference_answer are illustrative; the user specified none of them.
+
+      # Scoring rubric:
+      Grade the index definitions the assistant actually submitted in $conversation, not its prose. Any supported Voyage model is acceptable.
+
+      1. If neither a search index nor an auto-embedding vector index is created on the 'movies' collection and no valid definitions appear in $response, set score = 0.
+      2. If both a search (text) index and an auto-embedding vector index that generates embeddings from 'plot' are correctly defined:
+         a. If only one of the two indexes is created, or the vector index uses a raw 'vector' field instead of auto-embedding, or the assistant asked the user to generate embeddings with an external provider (e.g. OpenAI) instead of using auto-embedding, or both are only described in $response without being created, set score = 0.5.
+         b. Else (both indexes created, vector index auto-embedding from 'plot'), set score = 1.0.
+      3. In all other cases, set score = 0.

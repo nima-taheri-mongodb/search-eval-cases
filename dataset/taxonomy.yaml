@@ -37,9 +37,9 @@ taxonomy:
           - subcategory=Index Prerequisites:
               - Dual Search and Vector Index: requiring both a search and a vector index for hybrid search
               - AutoEmbed Hybrid Index: autoembed and search index for hybrid search
-              - Setup and Fuse Keyword and Semantic: creating lexical and auto-embedding indexes then fusing keyword and semantic retrieval for hybrid search
           - subcategory=Intent Recognition:
               - Explicit Hybrid Search Request: explicit hybrid search request for hybrid search
+              - Setup and Fuse Keyword and Semantic: creating lexical and auto-embedding indexes for hybrid search
               - Combine Keyword and Semantic: combining keyword and semantic retrieval for hybrid search
               - Exact and Semantic Both Matter: exact and semantic relevance both matter for hybrid search
               - Fusion over UnionWith: preferring fusion over unionWith for combining searches for hybrid search
