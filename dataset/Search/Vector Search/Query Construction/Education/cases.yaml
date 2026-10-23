@@ -1,0 +1,43 @@
+- metadata:
+    name: Query Model Cost and Compatibility
+    description: explaining query-model cost and compatibility for an existing auto-embedding index
+    category: Vector Search
+    subcategory: Query Construction
+    group: Education
+  input:
+    prompt: |
+      My auto-embedding index uses 'voyage-4-large' - can queries use a cheaper model to cut latency and cost?
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-large
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      Yes. Voyage-4 models share an embedding space, so a compatible cheaper query model such as voyage-4, voyage-4-lite, or voyage-4-nano can be used against an index built with voyage-4-large. Lighter models can reduce query-embedding cost and latency, with possible relevance-quality tradeoffs rather than a guarantee of identical results.
+
+      The optional model parameter belongs inside $vectorSearch alongside the natural-language query. If omitted, the query uses the index's model. Cross-family mixing, such as voyage-code-3 against a voyage-4-large index, is invalid.
+
+      A query-time model override leaves the index and stored document embeddings unchanged: no index rebuild or document re-embedding is required. Query embedding usage can still incur charges for the selected model; using a cheaper query model does not make queries free.
+
+      This is a factual question about costs and compatibility, not a request to select a model or execute a search. Answer directly without requiring a search topic, query parameters, model choice, or confirmation. A recommendation or illustrative query snippet is optional, but do not run a vector query, generate embeddings, or change an index.
+    llm_judge: |
+      # Success criterion
+      $response directly explains whether a cheaper compatible query model can reduce query-embedding cost and latency against the existing voyage-4-large auto-embedding index, as in $reference_answer. This is an Education case, not an informed-clarification or execution task.
+
+      # Scoring rubric:
+      Judge $response and the assistant's own operations in $conversation. Read-only schema/index inspection is allowed but not required; ignore harness seeding and judge-owned operations. Textual examples are not execution. Apply the first matching rule. No model selection or confirmation question is required, and a correct prose-only answer can receive full credit.
+
+      - Score 0 if the assistant attempts an index creation/update/deletion, embedding generation, or vector query. The user requested an explanation, not an operation, even if the attempted operation fails or is later undone.
+      - Score 0 if the response is empty or unrelated, recommends an incompatible query model, or claims that query-model selection is impossible.
+      - Otherwise, score 0.2 if the assistant recognizes an override but places the query model in the index definition instead of the query stage.
+      - Otherwise, score 1.0 if the response identifies a compatible cheaper Voyage-4 query model, explains the shared embedding space and cross-family restriction, default index-model behavior, query-stage model override, and cost/latency/quality tradeoffs. It must explain that the index and document embeddings stay unchanged, with no rebuild or document re-embedding, while query embedding usage can still be billed. Do not require a query example, results, or a follow-up question.
+      - Otherwise, score 0.5 if the assistant correctly explains a compatible cheaper query-time override but omits a material compatibility/default/tradeoff/billing detail or incorrectly recommends rebuilding the index.
+      - Otherwise, score 0.2 if the response gives relevant cost or compatibility information without adequately explaining the query-time override.
+      - In all other cases, score 0.

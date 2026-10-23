@@ -1,0 +1,40 @@
+- metadata:
+    name: Embedding Model Selection
+    description: choosing a supported auto-embedding model for a domain-specific dataset
+    category: Vector Search
+    subcategory: Index Creation
+    group: Education
+  input:
+    prompt: |
+      I have a collection of source-code snippets I want to search semantically - which embedding model should I use?
+    db_seed:
+      - movies
+  expected:
+    reference_answer: |
+      Recommendation: voyage-code-3 - the Voyage model specialised for source code. Explain why that specialization fits code snippets and the relevant trade-off, such as code-focused retrieval versus broader general-text applicability. Naming other models is optional.
+
+      Optional additional guidance: for general-purpose (non-code) text, the Voyage-4 ladder is the accuracy-vs-cost tradeoff: voyage-4-large (highest accuracy) > voyage-4 > voyage-4-lite (cheapest/fastest). Deprecated voyage-3 / voyage-3.5 models should not be recommended. Not supported for auto-embedding: OpenAI models, voyage-context-3, voyage-finance-2, voyage-law-2.
+
+      Optional configuration guidance: the model must be set explicitly in the index definition (JSON / driver); there is no implicit default to rely on. This reminder is not required to answer the model-selection question. Illustrative definition (the user named no collection or field, so 'snippet' is a placeholder):
+
+      {
+        type: "vectorSearch",
+        definition: {
+          fields: [
+            { type: "autoEmbed", path: "snippet", model: "voyage-code-3", modality: "text" }
+          ]
+        }
+      }
+    llm_judge: |
+      # Success criterion
+      $response recommends 'voyage-code-3' for atlas auto-embeddings with a rationale explaining its suitability for source code and a relevant trade-off, as in $reference_answer. The user asked a model-selection question and named no collection or field; index-configuration guidance, explanations of other Voyage models, and an illustrative autoEmbed definition are welcome but not required.
+
+      # Scoring rubric:
+      Judge $response by the primary embedding model it recommends, then apply the explanation deduction. This is a guidance question with no target collection: do not penalise the assistant for not creating an index or showing a definition, and do not require a specific field name, a reminder to set the model explicitly in the index definition, or explanations of other Voyage models.
+
+      - voyage-code-3 as the primary choice: score 1.0.
+      - A Voyage-4 model (e.g. voyage-4-large) as the primary choice: score 0.7.
+      - A deprecated Voyage-3 / Voyage-3.5 model (e.g. voyage-3, voyage-3.5, voyage-3-lite, voyage-code-2) as the primary choice: score 0.2.
+      - No model recommended (e.g. assumes a default), an unsupported model (e.g. an OpenAI model, voyage-context-3, voyage-finance-2, voyage-law-2), or anything else: score 0.
+
+      Explanation deduction: for a voyage-code-3 or Voyage-4 primary choice, subtract 0.2 once if $response does not explain both why the model fits source code and a relevant trade-off (e.g. code specialization versus general-text applicability, or accuracy versus cost). A voyage-code-3 recommendation without that explanation scores 0.8.

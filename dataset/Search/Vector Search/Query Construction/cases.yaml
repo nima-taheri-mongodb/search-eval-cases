@@ -1,0 +1,97 @@
+- metadata:
+    name: Natural-Language Query on Auto-Embed Index
+    description: natural-language semantic query against an existing auto-embedding index
+    category: Vector Search
+    subcategory: Query Construction
+  input:
+    prompt: |
+      The 'plot' field on the 'movies' collection is already indexed with auto-embedding. Find the top 5 movies about 'a haunted house' and return only the title and plot of each.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-lite
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $vectorSearch: {
+            index: "vector_auto_index",
+            path: "plot",
+            query: { text: "a haunted house" },
+            numCandidates: 40,
+            limit: 5
+          }
+        },
+        { $project: { _id: 0, title: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      $response returns on-topic movies produced by a $vectorSearch against the existing auto-embedding index on 'plot' using a plain natural-language query string, with no queryVector, no external embedding API call, and a $project that returns only the requested fields, as the reference query $reference_answer.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. Do NOT require exact result ordering versus $reference_answer; judge query structure and topic.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If the assistant generated an embedding client-side (called an external embedding SDK/API, or fabricated a float array) and passed it as queryVector against the auto-embedding index, set score = 0.
+      3. If a $vectorSearch with a natural-language query on the requested topic was run against the auto-embedding index:
+         a. If the assistant also wrapped the task in unnecessary steps — e.g. telling the user to obtain a Voyage/OpenAI API key or to generate embeddings first — set score = 0.2.
+         b. Else if the query also passes a stray queryVector alongside the text query, or the pipeline has no $project and returns full documents, set score = 0.5.
+         c. Else (natural-language query only, no queryVector, projection limited to title and plot), set score = 1.0.
+      4. In all other cases, set score = 0.
+      5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by transient cluster errors, or the judge's own reference execution of $reference_answer.
+- metadata:
+    name: Query Model Override
+    description: overriding the query embedding model in a semantic query against an auto-embedding index
+    category: Vector Search
+    subcategory: Query Construction
+  input:
+    prompt: |
+      Use 'vector_auto_index' on the 'movies' collection, which auto-embeds 'plot' with 'voyage-4-large', for a semantic search about 'a bank robbery'. Use 40 candidates, return the top 5 with only title and plot, and leave the index unchanged. I have chosen 'voyage-4-lite' as the cheaper query embedding model; run the search with it.
+    db_seed:
+      - movies:
+          indexes:
+            - definition:
+                fields:
+                  - type: autoEmbed
+                    path: plot
+                    model: voyage-4-large
+                    modality: text
+              name: vector_auto_index
+              type: vectorSearch
+  expected:
+    reference_answer: |
+      aggregate([
+        {
+          $vectorSearch: {
+            index: "vector_auto_index",
+            path: "plot",
+            query: { text: "a bank robbery" },
+            model: "voyage-4-lite",
+            numCandidates: 40,
+            limit: 5
+          }
+        },
+        { $project: { _id: 0, title: 1, plot: 1 } }
+      ])
+    llm_judge: |
+      # Success criterion
+      $response comes from a $vectorSearch on 'plot' using 'vector_auto_index', a natural-language query, and model 'voyage-4-lite' inside the query stage, with 40 candidates, limit 5, and a title/plot-only projection, as in $reference_answer. Voyage-4 models share one embedding space, so this query-model override is valid and leaves the index unchanged.
+
+      # Scoring rubric:
+      Grade the query the assistant actually submitted in $conversation, not its prose. Do NOT require exact result ordering versus $reference_answer; judge query structure and where the override is placed. All query parameters are specified and execution is requested, so no additional model-selection question is required.
+
+      1. If $response is empty or no aggregation ran, set score = 0.
+      2. If the assistant attempted to modify/recreate the index, used a model outside the Voyage-4 family for the query (e.g. voyage-code-3, an OpenAI model), generated an embedding client-side and passed a queryVector, or claimed that query-model selection is impossible, set score = 0.
+      3. If the assistant placed the query-model setting in a proposed index definition rather than the query stage, without actually changing the index, set score = 0.2.
+      4. If a $vectorSearch with a natural-language query on the requested topic was run against 'vector_auto_index' on 'plot':
+        a. If the query-stage model is missing or is not 'voyage-4-lite', numCandidates is not 40, limit is not 5, output is not projected to only title and plot, or the assistant recommended rebuilding the index instead, set score = 0.5.
+        b. Else (the requested query-model override, candidate count, limit, and projection are used with no index change), set score = 1.0.
+      5. In all other cases, set score = 0.
+      6. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by transient cluster errors, or the judge's own reference execution of $reference_answer.
