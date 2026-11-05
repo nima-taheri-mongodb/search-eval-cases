@@ -1,4 +1,5 @@
-- metadata:
+- id: 9c9ef454-e08e-4bd5-8629-a805a26331d6
+  metadata:
     name: Query Rate Limits
     description: explaining auto-embedding query rate limits, their scope, tiers, and recovery
     category: Vector Search
@@ -32,7 +33,8 @@
       4. If $response correctly states the scope (cluster-level, per model, RPM + TPM, shared across auto-embed indexes on the cluster), mentions tiering by cluster type (including that a free-tier cluster without a payment method is at the lowest tier), prescribes application-side backoff + retry, points to the auto-embedding configuration dashboard, and notes increases go through a support ticket, set score = 1.0.
       5. If $response gives backoff/retry advice plus at least one of (how to check the current limits, a path to raise the limit via support), does not misstate the scope, but omits or only partially covers the scope/tiering details required for 1.0, set score = 0.7.
       6. In all other cases, set score = 0.
-- metadata:
+- id: 062420cb-5ed6-4a36-8603-e78122582e89
+  metadata:
     name: Cluster Availability and Cost
     description: confirming auto-embedding availability across cluster types and clouds and setting cost expectations
     category: Vector Search

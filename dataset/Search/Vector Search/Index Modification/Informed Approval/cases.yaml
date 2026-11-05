@@ -1,4 +1,5 @@
-- metadata:
+- id: 318691b6-55fd-4123-a027-46e9153be511
+  metadata:
     name: Embedding Model Upgrade Confirmation
     description: confirming regeneration and re-embedding cost before upgrading to the specified embedding model
     category: Vector Search

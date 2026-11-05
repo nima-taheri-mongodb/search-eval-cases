@@ -577,7 +577,8 @@
          b. Else (bounded sub-pipelines and rebalanced weights with a clear diagnosis), set score = 1.0.
       3. In all other cases, set score = 0.
   origin: null
-- metadata:
+- id: 2c4d7335-7cdd-4a4d-9957-7789ea6e710b
+  metadata:
     name: Setup and Fuse Keyword and Semantic
     description: creating lexical and auto-embedding indexes for hybrid search
     category: Hybrid Search

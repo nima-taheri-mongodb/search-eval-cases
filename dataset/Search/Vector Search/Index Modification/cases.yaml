@@ -1,4 +1,5 @@
-- metadata:
+- id: fdf97a90-ec7f-4255-b210-b789d29b8e08
+  metadata:
     name: Add Second Auto-Embed Field
     description: extending an existing auto-embedding index to a second text field
     category: Vector Search
@@ -39,7 +40,8 @@
          b. If $conversation shows the assistant dropping 'vector_auto_index' and then creating a correct replacement under the same name, set score = 0.9.
          c. Else ('vector_auto_index' updated in place to contain both autoEmbed fields with 'voyage-4'), set score = 1.0.
       4. In all other cases, set score = 0.
-- metadata:
+- id: b1fc4720-36c9-46a8-a1d0-99f53c0657d6
+  metadata:
     name: Apply Quantization and Dimensions
     description: applying quantization and reduced dimensions to an existing auto-embedding index
     category: Vector Search
@@ -86,7 +88,8 @@
          b. If $conversation shows the assistant dropping 'vector_auto_index' and then creating a correct replacement under the same name, set score = 0.9.
          c. Else ('vector_auto_index' updated in place with quantization 'binary', numDimensions 512, similarity omitted on the autoEmbed 'plot' field, model 'voyage-4-lite' and all other settings unchanged), set score = 1.0.
       4. In all other cases, set score = 0.
-- metadata:
+- id: 0ca83a27-bec1-44ee-b18d-e609d5a2f94e
+  metadata:
     name: Upgrade Embedding Model
     description: switching an existing auto-embedding index to a higher-accuracy model
     category: Vector Search

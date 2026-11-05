@@ -1,4 +1,5 @@
-- metadata:
+- id: 55e66d22-aff2-493c-87fc-f3024a4b30d0
+  metadata:
     name: Auto-Embed vs BYOE Clarification
     description: clarifying auto-embedding vs bring-your-own-embeddings before creating a semantic search index
     category: Vector Search

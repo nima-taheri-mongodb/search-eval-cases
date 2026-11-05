@@ -1,4 +1,5 @@
-- metadata:
+- id: 8f7c89fa-a8f8-4a36-8f95-b33421ff04a1
+  metadata:
     name: Query Model Cost and Compatibility
     description: explaining query-model cost and compatibility for an existing auto-embedding index
     category: Vector Search

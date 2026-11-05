@@ -1,4 +1,5 @@
-- metadata:
+- id: acb5b286-0bac-4f8a-9508-7a605d33fea0
+  metadata:
     name: Embedding Model Selection
     description: choosing a supported auto-embedding model for a domain-specific dataset
     category: Vector Search

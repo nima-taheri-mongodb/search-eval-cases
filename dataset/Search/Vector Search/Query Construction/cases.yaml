@@ -1,4 +1,5 @@
-- metadata:
+- id: 4507686c-dbf8-43b1-9e89-f7620991aae0
+  metadata:
     name: Natural-Language Query on Auto-Embed Index
     description: natural-language semantic query against an existing auto-embedding index
     category: Vector Search
@@ -46,7 +47,8 @@
          c. Else (natural-language query only, no queryVector, projection limited to title and plot), set score = 1.0.
       4. In all other cases, set score = 0.
       5. Efficiency penalty: after determining the score from the rules above, if $conversation shows the assistant issuing more than one aggregate call where an earlier attempt was incorrect — it errored from a malformed pipeline, or was a structurally wrong query the assistant then revised — subtract 0.1 from that score (minimum 0). Do not penalize a single clean attempt, retries caused only by transient cluster errors, or the judge's own reference execution of $reference_answer.
-- metadata:
+- id: 6067ff74-864d-496c-b7c8-9dea4cfc208c
+  metadata:
     name: Query Model Override
     description: overriding the query embedding model in a semantic query against an auto-embedding index
     category: Vector Search
