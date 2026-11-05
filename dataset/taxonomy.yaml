@@ -39,6 +39,7 @@ taxonomy:
               - AutoEmbed Hybrid Index: autoembed and search index for hybrid search
           - subcategory=Intent Recognition:
               - Explicit Hybrid Search Request: explicit hybrid search request for hybrid search
+              - Setup and Fuse Keyword and Semantic: creating lexical and auto-embedding indexes for hybrid search
               - Combine Keyword and Semantic: combining keyword and semantic retrieval for hybrid search
               - Exact and Semantic Both Matter: exact and semantic relevance both matter for hybrid search
               - Fusion over UnionWith: preferring fusion over unionWith for combining searches for hybrid search
@@ -72,6 +73,30 @@ taxonomy:
               - Sort Sub-Pipeline: sort sub-pipeline for hybrid search
               - Skip and Limit Sub-Pipeline: skip and limit sub-pipeline for hybrid search
               - Disallowed Project in Sub-Pipeline: rejecting a project stage inside a sub-pipeline for hybrid search
+      - category=Vector Search:
+          - subcategory=Index Creation:
+              - Auto-Embed Index Creation: creating an auto-embedding vector index and demonstrating a natural-language semantic query
+              - group=Informed Clarification:
+                  - Auto-Embed vs BYOE Clarification: clarifying auto-embedding vs bring-your-own-embeddings before creating a semantic search index
+              - group=Education:
+                  - Embedding Model Selection: choosing a supported auto-embedding model for a domain-specific dataset
+          - subcategory=Query Construction:
+              - Natural-Language Query on Auto-Embed Index: natural-language semantic query against an existing auto-embedding index
+              - Query Model Override: overriding the query embedding model in a semantic query against an auto-embedding index
+              - group=Education:
+                  - Query Model Cost and Compatibility: explaining query-model cost and compatibility for an existing auto-embedding index
+          - subcategory=Index Modification:
+              - Add Second Auto-Embed Field: extending an existing auto-embedding index to a second text field
+              - Apply Quantization and Dimensions: applying quantization and reduced dimensions to an existing auto-embedding index
+              - Upgrade Embedding Model: switching an existing auto-embedding index to a higher-accuracy model
+              - group=Informed Approval:
+                  - Embedding Model Upgrade Confirmation: confirming regeneration and re-embedding cost before upgrading to the specified embedding model
+              - group=Education:
+                  - Storage Reduction Options: explaining vector-index quantization and dimension-reduction options, tradeoffs, and regeneration costs
+          - subcategory=Operations:
+              - group=Education:
+                  - Query Rate Limits: explaining auto-embedding query rate limits, their scope, tiers, and recovery
+                  - Cluster Availability and Cost: confirming auto-embedding availability across cluster types and clouds and setting cost expectations
       - category=Rerank:
           - subcategory=Reranking:
               - Rerank without a Search Index: rerank over a match and sort pipeline when no search index exists

@@ -129,6 +129,11 @@ Full eval (Atlas Local on `:27017`, mcp-server `pnpm eval:serve`):
 BRAINTRUST_API_KEY=… pnpm eval:remote "dataset/Team - Search/.../*.yaml"
 ```
 
+If the dev server (`pnpm eval:serve` in mongodb-mcp-server) is not already
+running, launch it with `BRAINTRUST_API_KEY` set in that shell — the server
+needs it to authenticate with Braintrust. This repo's `.env` already defines
+it; `set -a; source .env; set +a` before `pnpm eval:serve`.
+
 Traces: `output/<experiment>/`.
 
 | Symptom | Fix |

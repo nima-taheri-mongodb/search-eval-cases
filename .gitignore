@@ -3,6 +3,7 @@
 .idea
 .cursor
 .DS_Store
+.history
 output/
 node_modules/
 task/lib/vendor/**/*.cjs

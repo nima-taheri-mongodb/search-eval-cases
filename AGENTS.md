@@ -14,6 +14,7 @@ Detailed workflows live in **`skills/`** at the repo root (agent-agnostic).
 | **eval-case-authoring** | `skills/eval-case-authoring/SKILL.md` | Scaffolding taxonomy stubs, filling `dataset/**/*.yaml`, writing `llm_judge`, `pnpm typecheck`, `pnpm eval:remote`, fixing failed rows |
 | **eval-case-generation** | `skills/eval-case-generation/SKILL.md` | Generating new high-value cases (expert-voice prompts, reference_answer, 0–1.0 rubrics); hybrid search / rerank ($rankFusion, $scoreFusion, $rerank) scenarios via `hybrid-search-rerank.md` |
 | **mflix-search-queries** | `skills/mflix-search-queries/SKILL.md` | Choosing plot terms, reference aggregations, text/vector/hybrid syntax, selectivity (2–11 of 40 docs) |
+| **eval-pr-report** | `skills/eval-pr-report/SKILL.md` | Opening or updating a PR: measuring before/after eval accuracy, explaining score changes and fluctuation, writing the report into the PR description |
 
 Read the `SKILL.md` for the relevant skill before editing eval cases. Each skill
 has YAML frontmatter (`name`, `description`) for tools that support skill discovery.
@@ -41,6 +42,10 @@ skills/
   mflix-search-queries/
     SKILL.md                        # dataset, verified terms, selectivity
     reference.md                    # $search / $vectorSearch / $rankFusion pipelines
+  eval-pr-report/
+    SKILL.md                        # define comparison, pin env, run, analyze, publish
+    pr-description.md               # PR description template
+    braintrust-scores.md            # read per-row scores/explanations from Braintrust
 dataset/                            # eval case YAML (taxonomy → cases.yaml)
 dbseed/                             # movies + synonyms JSON
 DEVELOPER.md                        # repo layout, pnpm scripts, remote eval setup

@@ -33,6 +33,7 @@ export const YAML_SCHEMA_RULES = [
 const SCHEMA_LOAD_ORDER = [
   "input.schema.json",
   "expected.schema.json",
+  "metadata.schema.json",
   "dataset-meta.schema.json",
   "case-file.schema.json",
 ] as const;
